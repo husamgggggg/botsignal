@@ -1,0 +1,15 @@
+{
+  "name": "botsignal-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev:api": "cd apps/api_nest && npm run start:dev",
+    "build:api": "cd apps/api_nest && npm run build",
+    "start:api": "cd apps/api_nest && npm run start:prod",
+    "prisma:generate": "cd apps/api_nest && npx prisma generate",
+    "prisma:migrate": "cd apps/api_nest && npx prisma migrate dev",
+    "prisma:seed": "cd apps/api_nest && npx prisma db seed"
+  },
+  "devDependencies": {}
+}
+

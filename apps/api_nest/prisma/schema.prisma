@@ -1,0 +1,108 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Platform {
+  QUOTEX
+  POCKET_OPTION
+}
+
+enum Direction {
+  CALL
+  PUT
+}
+
+enum NewsStatus {
+  SAFE
+  WARNING
+  BLOCKED
+}
+
+enum AccountStatus {
+  REGISTERED
+  NO_DEPOSIT
+  DEPOSITED
+}
+
+model Device {
+  id          String   @id @default(uuid())
+  deviceId    String   @unique
+  fcmToken    String?
+  createdAt   DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  accounts    DeviceAccount[]
+  updatedAt   DateTime @updatedAt
+
+  @@map("devices")
+}
+
+model Account {
+  id                String        @id @default(uuid())
+  platform          Platform
+  accountId         String        // External account ID from broker
+  status            AccountStatus @default(REGISTERED)
+  lastDepositAmount Float?
+  lastDepositAt     DateTime?
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  devices           DeviceAccount[]
+
+  @@unique([platform, accountId])
+  @@map("accounts")
+}
+
+model DeviceAccount {
+  id        String   @id @default(uuid())
+  deviceId  String
+  accountId String
+  linkedAt  DateTime @default(now())
+  device    Device   @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  account   Account  @relation(fields: [accountId], references: [id], onDelete: Cascade)
+
+  @@unique([deviceId, accountId])
+  @@map("device_accounts")
+}
+
+model PostbackEvent {
+  id        String   @id @default(uuid())
+  platform  Platform
+  eventType String
+  payload   Json     // Store raw postback data
+  receivedAt DateTime @default(now())
+
+  @@map("postback_events")
+}
+
+model Signal {
+  id           String     @id @default(uuid())
+  platform     Platform?
+  asset        String
+  direction    Direction
+  expirySeconds Int       // Expiry in seconds (e.g., 60 for 1m, 300 for 5m)
+  confidence   Int        // 0-100
+  newsStatus   NewsStatus @default(SAFE)
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+  notifications NotificationLog[]
+
+  @@map("signals")
+}
+
+model NotificationLog {
+  id          String   @id @default(uuid())
+  signalId    String
+  signal      Signal   @relation(fields: [signalId], references: [id], onDelete: Cascade)
+  sentAt      DateTime @default(now())
+  fcmResponse Json?
+
+  @@map("notifications_log")
+}
+
