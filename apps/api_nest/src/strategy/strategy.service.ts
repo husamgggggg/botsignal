@@ -213,7 +213,13 @@ export class StrategyService {
         direction: Direction.CALL,
         confidence,
         strategy: 'Advanced Multi-Indicator',
-        indicators: buyConfirmations,
+        indicators: {
+          macd: buyConfirmations.macd || false,
+          rsi: buyConfirmations.rsi || false,
+          ema: buyConfirmations.ema || false,
+          supportResistance: buyConfirmations.supportResistance || false,
+          priceAction: buyConfirmations.priceAction || false,
+        },
         details: {
           macdStatus: buyConfirmations.macd ? 'Bullish' : undefined,
           rsiValue: buyConfirmations.rsi ? rsiLast : undefined,
@@ -230,7 +236,13 @@ export class StrategyService {
         direction: Direction.PUT,
         confidence,
         strategy: 'Advanced Multi-Indicator',
-        indicators: sellConfirmations,
+        indicators: {
+          macd: sellConfirmations.macd || false,
+          rsi: sellConfirmations.rsi || false,
+          ema: sellConfirmations.ema || false,
+          supportResistance: sellConfirmations.supportResistance || false,
+          priceAction: sellConfirmations.priceAction || false,
+        },
         details: {
           macdStatus: sellConfirmations.macd ? 'Bearish' : undefined,
           rsiValue: sellConfirmations.rsi ? rsiLast : undefined,
