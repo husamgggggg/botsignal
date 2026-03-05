@@ -1,20 +1,53 @@
-# Dependencies
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Node / JS dependencies
 node_modules/
 .pnp
 .pnp.js
 
-# Testing
-coverage/
+# Virtual Environment
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
 
-# Production
-build/
-dist/
-*.log
-
-# Environment
+# Environment variables
 .env
 .env.local
 .env.*.local
+
+# Testing
+coverage/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Production builds & logs
+build/
+dist/
+*.log
+logs/
 
 # IDE
 .vscode/
@@ -23,11 +56,18 @@ dist/
 *.swo
 *~
 
-# OS
+# OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
-# Flutter
+# State file (optional - you may want to track this)
+# state.json
+
+# Docker
+.dockerignore
+
+# Flutter (from botsignal monorepo)
 apps/mobile_flutter/.dart_tool/
 apps/mobile_flutter/.flutter-plugins
 apps/mobile_flutter/.flutter-plugins-dependencies
@@ -38,6 +78,6 @@ apps/mobile_flutter/build/
 apps/mobile_flutter/.ios/
 apps/mobile_flutter/.android/
 
-# Prisma
+# Prisma (from botsignal monorepo)
 apps/api_nest/prisma/migrations/
 
