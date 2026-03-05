@@ -155,6 +155,12 @@ export class StrategyService {
 
     const minConfirmations = 4; // Minimum required confirmations
 
+    // Log confirmation details for debugging
+    this.logger.debug(
+      `${instrument} Confirmations - Buy: ${buyCount}/5 (MACD:${buyConfirmations.macd}, RSI:${buyConfirmations.rsi}, EMA:${buyConfirmations.ema}, S/R:${buyConfirmations.supportResistance}, PA:${buyConfirmations.priceAction}), ` +
+      `Sell: ${sellCount}/5 (MACD:${sellConfirmations.macd}, RSI:${sellConfirmations.rsi}, EMA:${sellConfirmations.ema}, S/R:${sellConfirmations.supportResistance}, PA:${sellConfirmations.priceAction})`,
+    );
+
     // Calculate confidence (enhanced from bot)
     const calculateConfidence = (
       confirmations: Record<string, boolean>,
