@@ -1,0 +1,312 @@
+{
+  "EUR_JPY": {
+    "last_signal": "BUY",
+    "last_sent_at": 1772618429.047545
+  },
+  "AUD_CAD": {
+    "last_signal": "BUY",
+    "last_sent_at": 1772618009.320515
+  },
+  "EUR_USD": {
+    "last_signal": "BUY",
+    "last_sent_at": 1768830699.456668
+  },
+  "GBP_USD": {
+    "last_signal": "SELL",
+    "last_sent_at": 1769070028.024978
+  },
+  "USD_JPY": {
+    "last_signal": "BUY",
+    "last_sent_at": 1770131002.276176
+  },
+  "_global": {
+    "last_sent_at": 1772618668.879334,
+    "last_instrument": "AUD_JPY"
+  },
+  "_trades": {
+    "EUR_USD_1768300560": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16679,
+      "entry_time": 1768300560.0,
+      "message_id": 212,
+      "status": "completed"
+    },
+    "EUR_USD_1768300860": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16683,
+      "entry_time": 1768300860.0,
+      "message_id": 213,
+      "status": "completed"
+    },
+    "GBP_USD_1768300920": {
+      "instrument": "GBP_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.34726,
+      "entry_time": 1768300920.0,
+      "message_id": 214,
+      "status": "completed"
+    },
+    "EUR_USD_1768301040": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16676,
+      "entry_time": 1768301040.0,
+      "message_id": 215,
+      "status": "completed"
+    },
+    "EUR_USD_1768301400": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16664,
+      "entry_time": 1768301400.0,
+      "message_id": 217,
+      "status": "completed"
+    },
+    "GBP_USD_1768301460": {
+      "instrument": "GBP_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.34716,
+      "entry_time": 1768301460.0,
+      "message_id": 218,
+      "status": "completed"
+    },
+    "EUR_USD_1768301580": {
+      "instrument": "EUR_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.16662,
+      "entry_time": 1768301580.0,
+      "message_id": 219,
+      "status": "completed"
+    },
+    "EUR_JPY_1768301700": {
+      "instrument": "EUR_JPY",
+      "signal_type": "SELL",
+      "entry_price": 185.316,
+      "entry_time": 1768301700.0,
+      "message_id": 220,
+      "status": "completed"
+    },
+    "USD_JPY_1768301760": {
+      "instrument": "USD_JPY",
+      "signal_type": "BUY",
+      "entry_price": 158.85,
+      "entry_time": 1768301760.0,
+      "message_id": 221,
+      "status": "completed"
+    },
+    "GBP_USD_1768301820": {
+      "instrument": "GBP_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.34707,
+      "entry_time": 1768301820.0,
+      "message_id": 223,
+      "status": "completed"
+    },
+    "USD_JPY_1768301880": {
+      "instrument": "USD_JPY",
+      "signal_type": "BUY",
+      "entry_price": 158.838,
+      "entry_time": 1768301880.0,
+      "message_id": 224,
+      "status": "completed"
+    },
+    "GBP_USD_1768302000": {
+      "instrument": "GBP_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.34728,
+      "entry_time": 1768302000.0,
+      "message_id": 225,
+      "status": "completed"
+    },
+    "EUR_USD_1768302120": {
+      "instrument": "EUR_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.16659,
+      "entry_time": 1768302120.0,
+      "message_id": 226,
+      "status": "completed"
+    },
+    "EUR_USD_1768302420": {
+      "instrument": "EUR_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.16654,
+      "entry_time": 1768302420.0,
+      "message_id": 228,
+      "status": "completed"
+    },
+    "AUD_CAD_1768302480": {
+      "instrument": "AUD_CAD",
+      "signal_type": "BUY",
+      "entry_price": 0.93,
+      "entry_time": 1768302480.0,
+      "message_id": 229,
+      "status": "completed"
+    },
+    "GBP_USD_1768302600": {
+      "instrument": "GBP_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.34696,
+      "entry_time": 1768302600.0,
+      "message_id": 230,
+      "status": "completed"
+    },
+    "EUR_JPY_1768302720": {
+      "instrument": "EUR_JPY",
+      "signal_type": "BUY",
+      "entry_price": 185.348,
+      "entry_time": 1768302720.0,
+      "message_id": 231,
+      "status": "completed"
+    },
+    "USD_JPY_1768302900": {
+      "instrument": "USD_JPY",
+      "signal_type": "BUY",
+      "entry_price": 158.892,
+      "entry_time": 1768302900.0,
+      "message_id": 233,
+      "status": "completed"
+    },
+    "EUR_USD_1768303020": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16661,
+      "entry_time": 1768303020.0,
+      "message_id": 234,
+      "status": "completed"
+    },
+    "EUR_USD_1768303260": {
+      "instrument": "EUR_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.16646,
+      "entry_time": 1768303260.0,
+      "message_id": 236,
+      "status": "completed"
+    },
+    "EUR_USD_1768303380": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.1666,
+      "entry_time": 1768303380.0,
+      "message_id": 255,
+      "status": "completed"
+    },
+    "EUR_USD_1768303440": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16682,
+      "entry_time": 1768303440.0,
+      "message_id": 258,
+      "status": "completed"
+    },
+    "AUD_CAD_1768303560": {
+      "instrument": "AUD_CAD",
+      "signal_type": "BUY",
+      "entry_price": 0.92996,
+      "entry_time": 1768303560.0,
+      "message_id": 260,
+      "status": "completed"
+    },
+    "EUR_USD_1768304460": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.1669,
+      "entry_time": 1768304460.0,
+      "message_id": 263,
+      "status": "completed"
+    },
+    "EUR_JPY_1768304580": {
+      "instrument": "EUR_JPY",
+      "signal_type": "BUY",
+      "entry_price": 185.388,
+      "entry_time": 1768304580.0,
+      "message_id": 265,
+      "status": "completed"
+    },
+    "EUR_USD_1768304700": {
+      "instrument": "EUR_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.16676,
+      "entry_time": 1768304700.0,
+      "message_id": 267,
+      "status": "completed"
+    },
+    "EUR_USD_1768304760": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.1668,
+      "entry_time": 1768304760.0,
+      "message_id": 269,
+      "status": "completed"
+    },
+    "EUR_USD_1768304880": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.1668,
+      "entry_time": 1768304880.0,
+      "message_id": 271,
+      "status": "completed"
+    },
+    "EUR_USD_1768305780": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16678,
+      "entry_time": 1768305780.0,
+      "message_id": 274,
+      "status": "completed"
+    },
+    "EUR_USD_1768305900": {
+      "instrument": "EUR_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.16678,
+      "entry_time": 1768305900.0,
+      "message_id": 276,
+      "status": "completed"
+    },
+    "GBP_USD_1768306020": {
+      "instrument": "GBP_USD",
+      "signal_type": "BUY",
+      "entry_price": 1.34726,
+      "entry_time": 1768306020.0,
+      "message_id": 278,
+      "status": "completed"
+    },
+    "EUR_USD_1768306140": {
+      "instrument": "EUR_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.16654,
+      "entry_time": 1768306140.0,
+      "message_id": 280,
+      "status": "completed"
+    },
+    "EUR_USD_1768306260": {
+      "instrument": "EUR_USD",
+      "signal_type": "SELL",
+      "entry_price": 1.16655,
+      "entry_time": 1768306260.0,
+      "message_id": 282,
+      "status": "completed"
+    },
+    "AUD_CAD_1768306380": {
+      "instrument": "AUD_CAD",
+      "signal_type": "SELL",
+      "entry_price": 0.93014,
+      "entry_time": 1768306380.0,
+      "message_id": 284,
+      "status": "pending"
+    }
+  },
+  "AUD_JPY": {
+    "last_signal": "BUY",
+    "last_sent_at": 1772618668.905985
+  },
+  "AUD_CHF": {
+    "last_signal": "SELL",
+    "last_sent_at": 1772549690.403829
+  },
+  "EUR_GBP": {
+    "last_signal": "BUY",
+    "last_sent_at": 1772618548.905898
+  }
+}

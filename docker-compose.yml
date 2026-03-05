@@ -1,0 +1,17 @@
+version: '3.8'
+
+services:
+  oanda-bot:
+    build: .
+    container_name: oanda-telegram-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./state.json:/app/state.json
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
