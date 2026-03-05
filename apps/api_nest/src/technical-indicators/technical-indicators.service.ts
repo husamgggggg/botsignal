@@ -154,7 +154,121 @@ export class TechnicalIndicatorsService {
   }
 
   /**
-   * Find Support and Resistance levels
+   * Get nearest support level below price
+   */
+  getNearestSupport(price: number, supportLevels: SupportResistanceLevel[]): number | null {
+    const belowPrice = supportLevels
+      .filter((s) => s.type === 'support' && s.price < price)
+      .map((s) => s.price);
+    if (belowPrice.length === 0) {
+      return null;
+    }
+    return Math.max(...belowPrice);
+  }
+
+  /**
+   * Get nearest resistance level above price
+   */
+  getNearestResistance(price: number, resistanceLevels: SupportResistanceLevel[]): number | null {
+    const abovePrice = resistanceLevels
+      .filter((r) => r.type === 'resistance' && r.price > price)
+      .map((r) => r.price);
+    if (abovePrice.length === 0) {
+      return null;
+    }
+    return Math.min(...abovePrice);
+  }
+
+  /**
+   * Detect candle pattern (enhanced version from bot)
+   */
+  detectCandlePattern(
+    currentCandle: OandaCandle,
+    prevCandle?: OandaCandle,
+  ): { pattern: string; bullish: boolean } {
+    const body = Math.abs(currentCandle.close - currentCandle.open);
+    const upperWick = currentCandle.high - Math.max(currentCandle.close, currentCandle.open);
+    const lowerWick = Math.min(currentCandle.close, currentCandle.open) - currentCandle.low;
+    const totalRange = currentCandle.high - currentCandle.low;
+
+    if (totalRange === 0) {
+      return { pattern: 'NONE', bullish: false };
+    }
+
+    const bodyRatio = body / totalRange;
+    const upperWickRatio = upperWick / totalRange;
+    const lowerWickRatio = lowerWick / totalRange;
+
+    const isBullish = currentCandle.close > currentCandle.open;
+    const isBearish = currentCandle.close < currentCandle.open;
+
+    // Pin Bar Bullish
+    if (bodyRatio < 0.3 && lowerWickRatio > 0.6 && upperWickRatio < 0.2) {
+      if (isBullish || Math.abs(currentCandle.close - currentCandle.open) < body * 0.3) {
+        return { pattern: 'PIN_BAR_BULLISH', bullish: true };
+      }
+    }
+
+    // Pin Bar Bearish
+    if (bodyRatio < 0.3 && upperWickRatio > 0.6 && lowerWickRatio < 0.2) {
+      if (isBearish || Math.abs(currentCandle.close - currentCandle.open) < body * 0.3) {
+        return { pattern: 'PIN_BAR_BEARISH', bullish: false };
+      }
+    }
+
+    // Hammer
+    if (bodyRatio < 0.3 && lowerWickRatio > 0.6 && upperWickRatio < 0.3) {
+      if (currentCandle.low < (currentCandle.high + currentCandle.low) / 2) {
+        return { pattern: 'HAMMER', bullish: true };
+      }
+    }
+
+    // Shooting Star
+    if (bodyRatio < 0.3 && upperWickRatio > 0.6 && lowerWickRatio < 0.3) {
+      if (currentCandle.high > (currentCandle.high + currentCandle.low) / 2) {
+        return { pattern: 'SHOOTING_STAR', bullish: false };
+      }
+    }
+
+    // Doji
+    if (bodyRatio < 0.1) {
+      return { pattern: 'DOJI', bullish: false };
+    }
+
+    // Engulfing patterns (need previous candle)
+    if (prevCandle) {
+      const prevBody = Math.abs(prevCandle.close - prevCandle.open);
+      const prevIsBullish = prevCandle.close > prevCandle.open;
+      const prevIsBearish = prevCandle.close < prevCandle.open;
+
+      // Bullish Engulfing
+      if (
+        prevIsBearish &&
+        isBullish &&
+        body > prevBody * 1.5 &&
+        currentCandle.open < prevCandle.close &&
+        currentCandle.close > prevCandle.open
+      ) {
+        return { pattern: 'BULLISH_ENGULFING', bullish: true };
+      }
+
+      // Bearish Engulfing
+      if (
+        prevIsBullish &&
+        isBearish &&
+        body > prevBody * 1.5 &&
+        currentCandle.open > prevCandle.close &&
+        currentCandle.close < prevCandle.open
+      ) {
+        return { pattern: 'BEARISH_ENGULFING', bullish: false };
+      }
+    }
+
+    return { pattern: 'NONE', bullish: false };
+  }
+
+  /**
+   * Find Support and Resistance levels (enhanced from bot)
    */
   findSupportResistance(
     candles: OandaCandle[],

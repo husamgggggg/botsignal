@@ -33,14 +33,17 @@ export class StrategyService {
   ) {}
 
   /**
-   * Advanced Multi-Indicator Strategy (Default - Strongest)
+   * Advanced Multi-Indicator Strategy (Enhanced from bot)
    * Requires confirmation from at least 4 out of 5 indicators
+   * Based on bot/src/strategies/advanced_multi_indicator.py
    */
   async analyzeAdvancedMultiIndicator(
     instrument: string,
     candles: OandaCandle[],
   ): Promise<StrategyAnalysis> {
-    if (candles.length < 100) {
+    // Need at least 50 candles (EMA50 + some buffer)
+    const minCandles = 50;
+    if (candles.length < minCandles) {
       return {
         direction: null,
         confidence: 0,
@@ -51,17 +54,20 @@ export class StrategyService {
     }
 
     const closes = candles.map((c) => c.close);
+    const highs = candles.map((c) => c.high);
+    const lows = candles.map((c) => c.low);
     const currentPrice = closes[closes.length - 1];
+    const currentCandle = candles[candles.length - 1];
+    const prevCandle = candles.length > 1 ? candles[candles.length - 2] : undefined;
 
     // Calculate indicators
     const emas = this.technicalIndicators.calculateEMAs(candles);
-    const rsi = this.technicalIndicators.calculateRSI(closes);
-    const macd = this.technicalIndicators.calculateMACD(closes);
-    const supportResistance = this.technicalIndicators.findSupportResistance(candles);
-    const priceAction = this.technicalIndicators.detectPriceActionPatterns(candles);
+    const rsi = this.technicalIndicators.calculateRSI(closes, 14);
+    const macd = this.technicalIndicators.calculateMACD(closes, 12, 26, 9);
+    const supportResistance = this.technicalIndicators.findSupportResistance(candles, 50, 2, 0.15);
+    const candlePattern = this.technicalIndicators.detectCandlePattern(currentCandle, prevCandle);
 
     // Get latest values
-    const lastIndex = closes.length - 1;
     const ema10Last = emas.ema10[emas.ema10.length - 1];
     const ema20Last = emas.ema20[emas.ema20.length - 1];
     const ema50Last = emas.ema50[emas.ema50.length - 1];
@@ -70,124 +76,175 @@ export class StrategyService {
     const signalLineLast = macd.signalLine[macd.signalLine.length - 1];
     const histogramLast = macd.histogram[macd.histogram.length - 1];
 
-    // Check indicators for BUY
-    let buyIndicators = 0;
-    const buyDetails: any = {};
-
-    // MACD check
-    if (macdLineLast > signalLineLast && macdLineLast > 0 && histogramLast > 0) {
-      buyIndicators++;
-      buyDetails.macdStatus = 'Bullish';
+    // Check if all indicators are available
+    if (
+      ema10Last === undefined ||
+      ema20Last === undefined ||
+      ema50Last === undefined ||
+      rsiLast === undefined ||
+      macdLineLast === undefined ||
+      signalLineLast === undefined ||
+      histogramLast === undefined
+    ) {
+      return {
+        direction: null,
+        confidence: 0,
+        strategy: 'Advanced Multi-Indicator',
+        indicators: { macd: false, rsi: false, ema: false, supportResistance: false, priceAction: false },
+        details: {},
+      };
     }
 
-    // RSI check (45-70 for buy)
-    if (rsiLast >= 45 && rsiLast <= 70) {
-      buyIndicators++;
-      buyDetails.rsiValue = rsiLast;
+    // Get nearest support/resistance
+    const nearestSupport = this.technicalIndicators.getNearestSupport(currentPrice, supportResistance);
+    const nearestResistance = this.technicalIndicators.getNearestResistance(currentPrice, supportResistance);
+
+    // Check BUY conditions (from bot strategy)
+    const buyConfirmations: Record<string, boolean> = {};
+
+    // 1. MACD: MACD Line > Signal Line AND MACD Line > 0 AND Histogram > 0
+    buyConfirmations.macd =
+      macdLineLast > signalLineLast && macdLineLast > 0 && histogramLast > 0;
+
+    // 2. RSI: بين 45-70 (تجنب الذروة)
+    buyConfirmations.rsi = rsiLast >= 45 && rsiLast <= 70;
+
+    // 3. EMA: السعر > EMA10 > EMA20 > EMA50 (ترند صاعد قوي)
+    buyConfirmations.ema = currentPrice > ema10Last && ema10Last > ema20Last && ema20Last > ema50Last;
+
+    // 4. Support/Resistance: السعر قريب من دعم (0.2% tolerance)
+    buyConfirmations.supportResistance = false;
+    if (nearestSupport !== null) {
+      const distancePct = (Math.abs(currentPrice - nearestSupport) / nearestSupport) * 100;
+      if (distancePct <= 0.2) {
+        buyConfirmations.supportResistance = true;
+      }
     }
 
-    // EMA check
-    if (currentPrice > ema10Last && ema10Last > ema20Last && ema20Last > ema50Last) {
-      buyIndicators++;
-      buyDetails.emaStatus = 'Uptrend';
+    // 5. Price Action: نمط صاعد
+    buyConfirmations.priceAction = candlePattern.bullish && candlePattern.pattern !== 'NONE';
+
+    // Check SELL conditions
+    const sellConfirmations: Record<string, boolean> = {};
+
+    // 1. MACD: MACD Line < Signal Line AND MACD Line < 0 AND Histogram < 0
+    sellConfirmations.macd =
+      macdLineLast < signalLineLast && macdLineLast < 0 && histogramLast < 0;
+
+    // 2. RSI: بين 30-55 (تجنب الذروة)
+    sellConfirmations.rsi = rsiLast >= 30 && rsiLast <= 55;
+
+    // 3. EMA: السعر < EMA10 < EMA20 < EMA50 (ترند هابط قوي)
+    sellConfirmations.ema = currentPrice < ema10Last && ema10Last < ema20Last && ema20Last < ema50Last;
+
+    // 4. Support/Resistance: السعر قريب من مقاومة
+    sellConfirmations.supportResistance = false;
+    if (nearestResistance !== null) {
+      const distancePct = (Math.abs(currentPrice - nearestResistance) / nearestResistance) * 100;
+      if (distancePct <= 0.2) {
+        sellConfirmations.supportResistance = true;
+      }
     }
 
-    // Support/Resistance check
-    const nearSupport = supportResistance
-      .filter((level) => level.type === 'support')
-      .some((level) => Math.abs(currentPrice - level.price) / level.price <= 0.0015);
-    if (nearSupport) {
-      buyIndicators++;
-      buyDetails.supportResistanceStatus = 'Near Support';
-    }
+    // 5. Price Action: نمط هابط
+    sellConfirmations.priceAction = !candlePattern.bullish && candlePattern.pattern !== 'NONE';
 
-    // Price Action check
-    const recentBullishPattern = priceAction
-      .filter((p) => p.index >= candles.length - 6 && p.bullish)
-      .length > 0;
-    if (recentBullishPattern) {
-      buyIndicators++;
-      buyDetails.priceActionPattern = 'Bullish Pattern';
-    }
+    // Count confirmations
+    const buyCount = Object.values(buyConfirmations).filter((v) => v).length;
+    const sellCount = Object.values(sellConfirmations).filter((v) => v).length;
 
-    // Check indicators for SELL
-    let sellIndicators = 0;
-    const sellDetails: any = {};
+    const minConfirmations = 4; // Minimum required confirmations
 
-    // MACD check
-    if (macdLineLast < signalLineLast && macdLineLast < 0 && histogramLast < 0) {
-      sellIndicators++;
-      sellDetails.macdStatus = 'Bearish';
-    }
+    // Calculate confidence (enhanced from bot)
+    const calculateConfidence = (
+      confirmations: Record<string, boolean>,
+      signalType: 'buy' | 'sell',
+    ): number => {
+      // Base confidence: 20 points per confirmation
+      let baseConfidence = Object.values(confirmations).filter((v) => v).length * 20;
 
-    // RSI check (30-55 for sell)
-    if (rsiLast >= 30 && rsiLast <= 55) {
-      sellIndicators++;
-      sellDetails.rsiValue = rsiLast;
-    }
+      // MACD strength (0-15 points)
+      let macdStrength = 0;
+      if (confirmations.macd && macdLineLast !== undefined) {
+        macdStrength = Math.min(15, Math.abs(macdLineLast) * 10000);
+      }
 
-    // EMA check
-    if (currentPrice < ema10Last && ema10Last < ema20Last && ema20Last < ema50Last) {
-      sellIndicators++;
-      sellDetails.emaStatus = 'Downtrend';
-    }
+      // RSI strength (0-10 points) - closer to ideal = better
+      let rsiStrength = 0;
+      if (confirmations.rsi && rsiLast !== undefined) {
+        const idealRsi = signalType === 'buy' ? 57.5 : 42.5; // (45+70)/2 or (30+55)/2
+        const rsiDistance = Math.abs(rsiLast - idealRsi);
+        rsiStrength = Math.max(0, 10 - rsiDistance * 0.4);
+      }
 
-    // Support/Resistance check
-    const nearResistance = supportResistance
-      .filter((level) => level.type === 'resistance')
-      .some((level) => Math.abs(currentPrice - level.price) / level.price <= 0.0015);
-    if (nearResistance) {
-      sellIndicators++;
-      sellDetails.supportResistanceStatus = 'Near Resistance';
-    }
+      // EMA strength (0-10 points)
+      let emaStrength = 0;
+      if (confirmations.ema && ema10Last !== undefined) {
+        const distancePct =
+          signalType === 'buy'
+            ? ((currentPrice - ema10Last) / ema10Last) * 100
+            : ((ema10Last - currentPrice) / ema10Last) * 100;
+        emaStrength = Math.min(10, Math.max(5, distancePct * 2));
+      }
 
-    // Price Action check
-    const recentBearishPattern = priceAction
-      .filter((p) => p.index >= candles.length - 6 && !p.bullish)
-      .length > 0;
-    if (recentBearishPattern) {
-      sellIndicators++;
-      sellDetails.priceActionPattern = 'Bearish Pattern';
-    }
+      // Support/Resistance strength (0-10 points)
+      let srStrength = 0;
+      if (confirmations.supportResistance) {
+        const level = signalType === 'buy' ? nearestSupport : nearestResistance;
+        if (level !== null) {
+          const distancePct = (Math.abs(currentPrice - level) / level) * 100;
+          srStrength = Math.max(0, 10 - distancePct * 50);
+        }
+      }
 
-    // Determine direction and confidence
-    if (buyIndicators >= 4) {
-      const confidence = Math.min(100, 75 + (buyIndicators - 4) * 5); // 75-100%
+      // Price Action strength (0-5 points)
+      const priceActionStrength = confirmations.priceAction ? 5 : 0;
+
+      const totalConfidence = baseConfidence + macdStrength + rsiStrength + emaStrength + srStrength + priceActionStrength;
+
+      // Minimum 75%, maximum 100%
+      return Math.max(75, Math.min(100, Math.round(totalConfidence)));
+    };
+
+    // Determine signal
+    if (buyCount >= minConfirmations && buyCount > sellCount) {
+      const confidence = calculateConfidence(buyConfirmations, 'buy');
       return {
         direction: Direction.CALL,
         confidence,
         strategy: 'Advanced Multi-Indicator',
-        indicators: {
-          macd: buyDetails.macdStatus === 'Bullish',
-          rsi: buyDetails.rsiValue !== undefined,
-          ema: buyDetails.emaStatus === 'Uptrend',
-          supportResistance: buyDetails.supportResistanceStatus !== undefined,
-          priceAction: buyDetails.priceActionPattern !== undefined,
+        indicators: buyConfirmations,
+        details: {
+          macdStatus: buyConfirmations.macd ? 'Bullish' : undefined,
+          rsiValue: buyConfirmations.rsi ? rsiLast : undefined,
+          emaStatus: buyConfirmations.ema ? 'Uptrend' : undefined,
+          supportResistanceStatus: buyConfirmations.supportResistance ? 'Near Support' : undefined,
+          priceActionPattern: buyConfirmations.priceAction ? candlePattern.pattern : undefined,
         },
-        details: buyDetails,
       };
     }
 
-    if (sellIndicators >= 4) {
-      const confidence = Math.min(100, 75 + (sellIndicators - 4) * 5); // 75-100%
+    if (sellCount >= minConfirmations && sellCount > buyCount) {
+      const confidence = calculateConfidence(sellConfirmations, 'sell');
       return {
         direction: Direction.PUT,
         confidence,
         strategy: 'Advanced Multi-Indicator',
-        indicators: {
-          macd: sellDetails.macdStatus === 'Bearish',
-          rsi: sellDetails.rsiValue !== undefined,
-          ema: sellDetails.emaStatus === 'Downtrend',
-          supportResistance: sellDetails.supportResistanceStatus !== undefined,
-          priceAction: sellDetails.priceActionPattern !== undefined,
+        indicators: sellConfirmations,
+        details: {
+          macdStatus: sellConfirmations.macd ? 'Bearish' : undefined,
+          rsiValue: sellConfirmations.rsi ? rsiLast : undefined,
+          emaStatus: sellConfirmations.ema ? 'Downtrend' : undefined,
+          supportResistanceStatus: sellConfirmations.supportResistance ? 'Near Resistance' : undefined,
+          priceActionPattern: sellConfirmations.priceAction ? candlePattern.pattern : undefined,
         },
-        details: sellDetails,
       };
     }
 
+    // No signal (insufficient confirmations)
     return {
       direction: null,
-      confidence: Math.max(buyIndicators, sellIndicators) * 15, // Max 60% if less than 4 indicators
+      confidence: Math.max(buyCount, sellCount) * 15, // Max 60% if less than 4 indicators
       strategy: 'Advanced Multi-Indicator',
       indicators: {
         macd: false,
