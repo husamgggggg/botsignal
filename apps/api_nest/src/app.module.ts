@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { ThrottlerModule } from '@nestjs/throttler';
+import { ScheduleModule } from '@nestjs/schedule';
 import { PrismaModule } from './prisma/prisma.module';
 import { AuthModule } from './auth/auth.module';
 import { VerifyModule } from './verify/verify.module';
@@ -15,6 +16,7 @@ import { SignalGeneratorModule } from './signal-generator/signal-generator.modul
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    ScheduleModule.forRoot(), // Enable cron jobs
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 1 minute

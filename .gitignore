@@ -78,6 +78,7 @@ apps/mobile_flutter/build/
 apps/mobile_flutter/.ios/
 apps/mobile_flutter/.android/
 
-# Prisma (from botsignal monorepo)
-apps/api_nest/prisma/migrations/
+# Prisma
+# Note: migrations should be committed for production deployments
+# apps/api_nest/prisma/migrations/
 

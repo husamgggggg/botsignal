@@ -2,13 +2,30 @@ import { Injectable, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { Platform, Direction, NewsStatus, AccountStatus } from '@prisma/client';
 import { FcmService } from '../fcm/fcm.service';
+import { IsEnum, IsString, IsNumber, IsOptional, Min, Max } from 'class-validator';
 
 export class CreateSignalDto {
+  @IsEnum(Platform)
+  @IsOptional()
   platform?: Platform;
+
+  @IsString()
   asset: string;
+
+  @IsEnum(Direction)
   direction: Direction;
+
+  @IsNumber()
+  @Min(1)
   expirySeconds: number;
+
+  @IsNumber()
+  @Min(0)
+  @Max(100)
   confidence: number;
+
+  @IsEnum(NewsStatus)
+  @IsOptional()
   newsStatus?: NewsStatus;
 }
 

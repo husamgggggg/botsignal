@@ -34,8 +34,19 @@ void main() async {
   }
 
   // Initialize API base URL
-  final apiBaseUrl = prefs.getString('api_base_url') ?? 'http://localhost:3000';
-  AppConfig.apiBaseUrl = apiBaseUrl;
+  // Check if API_URL was set at compile time via --dart-define
+  final envApiUrl = const String.fromEnvironment('API_URL', defaultValue: '');
+  if (envApiUrl.isNotEmpty) {
+    // Use compile-time value (already set in AppConfig)
+    // No need to change it
+  } else {
+    // Fallback to SharedPreferences or default
+    final savedApiUrl = prefs.getString('api_base_url');
+    if (savedApiUrl != null && savedApiUrl.isNotEmpty) {
+      // Note: Can't change const at runtime, but for web we use relative paths
+      // This is mainly for mobile apps
+    }
+  }
 
   runApp(
     ProviderScope(

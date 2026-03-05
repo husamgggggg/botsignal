@@ -148,6 +148,45 @@ curl -X POST http://localhost:3000/api/admin/signals \
 
 سيؤدي هذا إلى إنشاء إشارة وإرسال إشعارات push لجميع الأجهزة النشطة الم verified.
 
+## البناء للإنتاج (Production Build)
+
+### بناء الخادم
+
+```bash
+cd apps/api_nest
+
+# البناء (سيقوم تلقائياً بنسخ ملفات Prisma وإنشاء Prisma Client)
+npm run build
+
+# تطبيق migrations على قاعدة البيانات (للإنتاج)
+npm run prisma:migrate:deploy
+
+# تشغيل الخادم في وضع الإنتاج
+npm run start:prod
+```
+
+**ملاحظات مهمة:**
+- ✅ عملية البناء (`npm run build`) تقوم تلقائياً بـ:
+  - بناء الكود TypeScript إلى JavaScript في مجلد `dist/`
+  - إنشاء Prisma Client
+  - نسخ ملفات Prisma (schema.prisma و migrations) إلى `dist/prisma/`
+- ✅ تأكد من أن ملف `.env` موجود ويحتوي على جميع المتغيرات المطلوبة
+- ✅ في الإنتاج، استخدم `prisma:migrate:deploy` بدلاً من `prisma:migrate dev`
+- ✅ مسار تشغيل API بعد البناء: `node dist/main` (يتم تنفيذه عبر `npm run start:prod`)
+
+### التحقق من البناء
+
+```bash
+# التحقق من وجود مجلد dist
+ls -la dist/
+
+# التحقق من وجود Prisma Client
+ls -la node_modules/.prisma/client/
+
+# التحقق من وجود migrations في dist
+ls -la dist/prisma/migrations/
+```
+
 ## حل المشاكل
 
 ### مشاكل اتصال قاعدة البيانات
@@ -166,6 +205,12 @@ curl -X POST http://localhost:3000/api/admin/signals \
 - إعداد Firebase اختياري للإصدار الأولي
 - إذا لم يتم التكوين، سيتم تسجيل الإشعارات ولكن لن يتم إرسالها
 - تحقق من سجلات الخادم لأخطاء FCM
+
+### مشاكل البناء والإنتاج
+- **لا توجد migrations**: تأكد من أن مجلد `prisma/migrations/` موجود ويحتوي على migrations. إذا كان فارغاً، قم بتشغيل `npm run prisma:migrate` أولاً
+- **مسار تشغيل API خاطئ**: تأكد من تشغيل `npm run build` قبل `npm run start:prod`. المسار الصحيح هو `node dist/main`
+- **Prisma Client غير موجود**: بعد البناء، تأكد من تشغيل `npm run prisma:generate` أو أن عملية البناء قامت بذلك تلقائياً
+- **خطأ في نسخ ملفات Prisma**: تأكد من وجود ملف `scripts/copy-prisma.js` وأنه يعمل بشكل صحيح
 
 ## مرجع متغيرات البيئة
 
