@@ -88,18 +88,18 @@ export class BinaryOptionsStrategyService {
     // MARKET ANALYSIS LAYER
     // ============================================
 
-    // 1. Trend Detection (EMA 20, 50, 200)
+    // 1. Trend Detection (EMA 20, 50, 100 instead of 200 for shorter timeframe)
     const ema20 = this.technicalIndicators.calculateEMA(closes, 20);
     const ema50 = this.technicalIndicators.calculateEMA(closes, 50);
-    const ema200 = this.technicalIndicators.calculateEMA(closes, 200);
+    const ema100 = this.technicalIndicators.calculateEMA(closes, 100); // Use 100 instead of 200 for M1
 
     const ema20Last = ema20[ema20.length - 1];
     const ema50Last = ema50[ema50.length - 1];
-    const ema200Last = ema200[ema200.length - 1];
+    const ema100Last = ema100[ema100.length - 1];
 
-    // Trend alignment
-    const bullishTrend = currentPrice > ema20Last && ema20Last > ema50Last && ema50Last > ema200Last;
-    const bearishTrend = currentPrice < ema20Last && ema20Last < ema50Last && ema50Last < ema200Last;
+    // Trend alignment (use 100 instead of 200)
+    const bullishTrend = currentPrice > ema20Last && ema20Last > ema50Last && ema50Last > ema100Last;
+    const bearishTrend = currentPrice < ema20Last && ema20Last < ema50Last && ema50Last < ema100Last;
 
     // 2. Trend Strength (ADX)
     const adx = this.technicalIndicators.calculateADX(candles, 14);
@@ -207,6 +207,13 @@ export class BinaryOptionsStrategyService {
 
     const callConfirmationCount = Object.values(callConfirmations).filter((v) => v).length;
 
+    this.logger.debug(
+      `${instrument} CALL Confirmations: ${callConfirmationCount}/5 - ` +
+      `Trend:${callConfirmations.trend} Momentum:${callConfirmations.momentum} ` +
+      `Volatility:${callConfirmations.volatility} S/R:${callConfirmations.supportResistance} ` +
+      `MarketStructure:${callConfirmations.marketStructure}`
+    );
+
     // ============================================
     // SIGNAL LOGIC - PUT SIGNAL
     // ============================================
@@ -225,14 +232,31 @@ export class BinaryOptionsStrategyService {
 
     const putConfirmationCount = Object.values(putConfirmations).filter((v) => v).length;
 
+    this.logger.debug(
+      `${instrument} PUT Confirmations: ${putConfirmationCount}/5 - ` +
+      `Trend:${putConfirmations.trend} Momentum:${putConfirmations.momentum} ` +
+      `Volatility:${putConfirmations.volatility} S/R:${putConfirmations.supportResistance} ` +
+      `MarketStructure:${putConfirmations.marketStructure}`
+    );
+
     // ============================================
     // FILTER: Avoid sideways markets
     // ============================================
 
     if (lowVolatility && !bollingerSqueeze) {
-      this.logger.debug(`${instrument}: Low volatility detected, skipping signal`);
+      this.logger.debug(`${instrument}: Low volatility detected (ATR: ${atrPercent.toFixed(4)}%), skipping signal`);
       return this.createEmptyAnalysis();
     }
+
+    // Log detailed analysis for debugging
+    this.logger.debug(
+      `${instrument} Analysis - ` +
+      `Trend: ${bullishTrend ? 'BULL' : bearishTrend ? 'BEAR' : 'NONE'} (ADX: ${adxLast.toFixed(1)}, Strong: ${strongTrend}), ` +
+      `RSI: ${rsiLast.toFixed(1)}, Stochastic: K=${stochasticKLast.toFixed(1)} D=${stochasticDLast.toFixed(1)}, ` +
+      `MACD Hist: ${macdHistogramLast.toFixed(5)}, ` +
+      `BB Squeeze: ${bollingerSqueeze}, ATR: ${atrPercent.toFixed(4)}%, ` +
+      `Market Structure: ${marketStructure.structure} (${marketStructure.strength.toFixed(1)})`
+    );
 
     // ============================================
     // CONFIDENCE CALCULATION
@@ -252,7 +276,10 @@ export class BinaryOptionsStrategyService {
         rsiDivergenceStrength: rsiDivergence.strength,
       });
 
+      this.logger.debug(`${instrument} CALL Confidence calculated: ${confidence}%`);
+      
       if (confidence >= 70) {
+        this.logger.log(`${instrument} ✅ CALL signal generated: ${confidence}% confidence`);
         return {
           direction: Direction.CALL,
           confidence,
@@ -284,7 +311,10 @@ export class BinaryOptionsStrategyService {
         rsiDivergenceStrength: rsiDivergence.strength,
       });
 
+      this.logger.debug(`${instrument} PUT Confidence calculated: ${confidence}%`);
+      
       if (confidence >= 70) {
+        this.logger.log(`${instrument} ✅ PUT signal generated: ${confidence}% confidence`);
         return {
           direction: Direction.PUT,
           confidence,
@@ -306,6 +336,13 @@ export class BinaryOptionsStrategyService {
     }
 
     // No signal
+    const maxConfirmationCount = Math.max(callConfirmationCount, putConfirmationCount);
+    if (maxConfirmationCount > 0) {
+      this.logger.debug(
+        `${instrument} ❌ No signal: Max confirmations=${maxConfirmationCount}/${minConfirmations} ` +
+        `(CALL:${callConfirmationCount}, PUT:${putConfirmationCount})`
+      );
+    }
     return this.createEmptyAnalysis();
   }
 
