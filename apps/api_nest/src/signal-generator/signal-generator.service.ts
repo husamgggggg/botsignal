@@ -78,8 +78,8 @@ export class SignalGeneratorService {
           );
         }
         
-        // Only consider signals with direction and confidence >= 60%
-        if (analysis.direction && analysis.confidence >= 60) {
+        // Only consider signals with direction and confidence >= 50%
+        if (analysis.direction && analysis.confidence >= 50) {
           qualifiedSignals.push({ instrument, analysis });
           this.logger.log(`✅ Qualified: ${instrument} ${analysis.direction} (${analysis.confidence}%)`);
         } else if (analysis.direction) {
@@ -93,7 +93,7 @@ export class SignalGeneratorService {
     this.logger.log(`Found ${qualifiedSignals.length} qualified signal(s) out of ${this.instruments.length} instruments`);
 
     if (qualifiedSignals.length === 0) {
-      this.logger.log('No qualified signals found (need: direction + confidence >= 60%)');
+      this.logger.log('No qualified signals found (need: direction + confidence >= 50%)');
       return;
     }
 

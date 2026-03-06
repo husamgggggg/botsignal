@@ -97,11 +97,11 @@ export class BinaryOptionsStrategyService {
     const ema50Last = ema50[ema50.length - 1];
     const ema100Last = ema100[ema100.length - 1];
 
-    // Trend alignment (relaxed: EMA20 > EMA50 only, or price > EMA20 for bullish)
-    const bullishTrend = (currentPrice > ema20Last && ema20Last > ema50Last) || 
-                         (ema100Last && currentPrice > ema20Last && ema20Last > ema50Last && ema50Last > ema100Last);
-    const bearishTrend = (currentPrice < ema20Last && ema20Last < ema50Last) || 
-                         (ema100Last && currentPrice < ema20Last && ema20Last < ema50Last && ema50Last < ema100Last);
+    // Trend alignment (relaxed: EMA20 > EMA50 only, or full alignment if EMA100 available)
+    const bullishTrend = (currentPrice > ema20Last && ema20Last > ema50Last) && 
+                         (ema100Last === undefined || ema100Last === null || isNaN(ema100Last) || ema50Last > ema100Last);
+    const bearishTrend = (currentPrice < ema20Last && ema20Last < ema50Last) && 
+                         (ema100Last === undefined || ema100Last === null || isNaN(ema100Last) || ema50Last < ema100Last);
 
     // 2. Trend Strength (ADX)
     const adx = this.technicalIndicators.calculateADX(candles, 14);
@@ -284,7 +284,7 @@ export class BinaryOptionsStrategyService {
 
       this.logger.debug(`${instrument} CALL Confidence calculated: ${confidence}%`);
       
-      if (confidence >= 60) { // Lowered from 70% to 60% for better signal frequency
+      if (confidence >= 50) { // Lowered to 50% for better signal frequency while maintaining quality
         this.logger.log(`${instrument} ✅ CALL signal generated: ${confidence}% confidence`);
         return {
           direction: Direction.CALL,
@@ -319,7 +319,7 @@ export class BinaryOptionsStrategyService {
 
       this.logger.debug(`${instrument} PUT Confidence calculated: ${confidence}%`);
       
-      if (confidence >= 60) { // Lowered from 70% to 60% for better signal frequency
+      if (confidence >= 50) { // Lowered to 50% for better signal frequency while maintaining quality
         this.logger.log(`${instrument} ✅ PUT signal generated: ${confidence}% confidence`);
         return {
           direction: Direction.PUT,
@@ -368,8 +368,8 @@ export class BinaryOptionsStrategyService {
       rsiDivergenceStrength: number;
     },
   ): number {
-    // Base confidence: 15 points per confirmation
-    let confidence = Object.values(confirmations).filter((v) => v).length * 15;
+      // Base confidence: 20 points per confirmation (ensures 40% minimum for 2 confirmations)
+      let confidence = Object.values(confirmations).filter((v) => v).length * 20;
 
     // Trend strength bonus (ADX)
     if (confirmations.trend) {
