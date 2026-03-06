@@ -1,11 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/localization/app_localizations.dart';
 import '../../../../core/services/signals_service.dart';
 import '../../../../core/providers/auth_provider.dart';
-import '../../../../core/services/api_service.dart';
 import '../widgets/fintech_signal_card.dart';
 import '../widgets/bottom_nav_bar.dart';
 import '../widgets/top_status_bar.dart';
@@ -31,6 +30,24 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     _loadMockSignals();
     // Try to load real signals in background (silently fail if error)
     _loadSignalsSilently();
+    // Start periodic refresh (every 30 seconds)
+    _startPeriodicRefresh();
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Timer? _refreshTimer;
+
+  void _startPeriodicRefresh() {
+    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (mounted) {
+        _loadSignalsSilently();
+      }
+    });
   }
 
   void _loadMockSignals() {
@@ -87,20 +104,69 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       }
       
       final token = authNotifier.token;
-      if (token != null) {
-        final apiService = ref.read(apiServiceProvider);
-        apiService.setAuthToken(token);
-        final signalsService = SignalsService(apiService);
-        final signals = await signalsService.getSignals();
+      if (token == null) {
+        debugPrint('⚠️ No auth token - cannot load signals');
+        return;
+      }
+      
+      final apiService = ref.read(apiServiceProvider);
+      apiService.setAuthToken(token);
+      final signalsService = SignalsService(apiService);
+      final signals = await signalsService.getSignals();
+      
+      debugPrint('✅ Loaded ${signals.length} signals from API');
+      
+      // Only update if we got real signals
+      if (signals.isNotEmpty && mounted) {
+        // Transform API signals to display format
+        final transformedSignals = signals.map((signal) {
+          // Calculate remaining time
+          final createdAt = signal['createdAt'] as String?;
+          final expirySeconds = signal['expirySeconds'] as int? ?? 60;
+          final createdAtDate = createdAt != null ? DateTime.parse(createdAt) : DateTime.now();
+          final expiryDate = createdAtDate.add(Duration(seconds: expirySeconds));
+          final remainingSeconds = expiryDate.difference(DateTime.now()).inSeconds;
+          
+          // Format entry time
+          final entryTime = createdAtDate.toIso8601String().substring(11, 16); // HH:mm
+          
+          // Determine contract duration from expirySeconds
+          String contractDuration = 'M1';
+          if (expirySeconds >= 300) {
+            contractDuration = 'M5';
+          } else if (expirySeconds >= 180) {
+            contractDuration = 'M3';
+          } else if (expirySeconds >= 60) {
+            contractDuration = 'M1';
+          } else {
+            contractDuration = '30s';
+          }
+          
+          return {
+            'id': signal['id'],
+            'asset': signal['asset'],
+            'direction': signal['direction'],
+            'probability': signal['confidence'] ?? 50, // Use confidence as probability
+            'expirySeconds': remainingSeconds > 0 ? remainingSeconds : 0,
+            'entryTime': '$entryTime GMT',
+            'contractDuration': contractDuration,
+            'suggestedRisk': 2.0,
+            'suggestedRiskPercent': 2,
+            'confidence': signal['confidence'],
+            'newsStatus': signal['newsStatus'] ?? 'SAFE',
+          };
+        }).toList();
         
-        // Only update if we got real signals
-        if (signals.isNotEmpty && mounted) {
-          setState(() {
-            _signals = signals;
-          });
-        }
+        setState(() {
+          _signals = transformedSignals;
+        });
+        
+        debugPrint('✅ Transformed ${transformedSignals.length} signals for display');
+      } else if (mounted) {
+        debugPrint('⚠️ No signals returned from API (empty list)');
       }
     } catch (e) {
+      debugPrint('❌ Error loading signals: $e');
       // Silently ignore errors - keep showing mock signals
     }
   }
