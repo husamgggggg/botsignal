@@ -106,17 +106,17 @@ export class StrategyService {
     buyConfirmations.macd =
       macdLineLast > signalLineLast && macdLineLast > 0 && histogramLast > 0;
 
-    // 2. RSI: بين 45-70 (تجنب الذروة)
-    buyConfirmations.rsi = rsiLast >= 45 && rsiLast <= 70;
+    // 2. RSI: بين 40-75 (أقل صرامة)
+    buyConfirmations.rsi = rsiLast >= 40 && rsiLast <= 75;
 
-    // 3. EMA: السعر > EMA10 > EMA20 > EMA50 (ترند صاعد قوي)
-    buyConfirmations.ema = currentPrice > ema10Last && ema10Last > ema20Last && ema20Last > ema50Last;
+    // 3. EMA: السعر > EMA10 (أقل صرامة - ترند صاعد)
+    buyConfirmations.ema = currentPrice > ema10Last;
 
-    // 4. Support/Resistance: السعر قريب من دعم (0.2% tolerance)
+    // 4. Support/Resistance: السعر قريب من دعم (0.5% tolerance - أقل صرامة)
     buyConfirmations.supportResistance = false;
     if (nearestSupport !== null) {
       const distancePct = (Math.abs(currentPrice - nearestSupport) / nearestSupport) * 100;
-      if (distancePct <= 0.2) {
+      if (distancePct <= 0.5) {
         buyConfirmations.supportResistance = true;
       }
     }
@@ -131,17 +131,17 @@ export class StrategyService {
     sellConfirmations.macd =
       macdLineLast < signalLineLast && macdLineLast < 0 && histogramLast < 0;
 
-    // 2. RSI: بين 30-55 (تجنب الذروة)
-    sellConfirmations.rsi = rsiLast >= 30 && rsiLast <= 55;
+    // 2. RSI: بين 25-60 (أقل صرامة)
+    sellConfirmations.rsi = rsiLast >= 25 && rsiLast <= 60;
 
-    // 3. EMA: السعر < EMA10 < EMA20 < EMA50 (ترند هابط قوي)
-    sellConfirmations.ema = currentPrice < ema10Last && ema10Last < ema20Last && ema20Last < ema50Last;
+    // 3. EMA: السعر < EMA10 (أقل صرامة - ترند هابط)
+    sellConfirmations.ema = currentPrice < ema10Last;
 
-    // 4. Support/Resistance: السعر قريب من مقاومة
+    // 4. Support/Resistance: السعر قريب من مقاومة (0.5% tolerance - أقل صرامة)
     sellConfirmations.supportResistance = false;
     if (nearestResistance !== null) {
       const distancePct = (Math.abs(currentPrice - nearestResistance) / nearestResistance) * 100;
-      if (distancePct <= 0.2) {
+      if (distancePct <= 0.5) {
         sellConfirmations.supportResistance = true;
       }
     }
@@ -153,7 +153,7 @@ export class StrategyService {
     const buyCount = Object.values(buyConfirmations).filter((v) => v).length;
     const sellCount = Object.values(sellConfirmations).filter((v) => v).length;
 
-    const minConfirmations = 3; // Minimum required confirmations (3/5 = 60%)
+    const minConfirmations = 2; // Minimum required confirmations (2/5 = 40%)
 
     // Log confirmation details for debugging
     this.logger.debug(
@@ -209,11 +209,12 @@ export class StrategyService {
       const totalConfidence = baseConfidence + macdStrength + rsiStrength + emaStrength + srStrength + priceActionStrength;
 
       // Minimum confidence based on confirmations:
+      // 2 confirmations: 50% minimum
       // 3 confirmations: 60% minimum
-      // 4 confirmations: 75% minimum
-      // 5 confirmations: 80% minimum
+      // 4 confirmations: 70% minimum
+      // 5 confirmations: 75% minimum
       const confirmationCount = Object.values(confirmations).filter((v) => v).length;
-      const minConfidence = confirmationCount >= 5 ? 80 : confirmationCount >= 4 ? 75 : 60;
+      const minConfidence = confirmationCount >= 5 ? 75 : confirmationCount >= 4 ? 70 : confirmationCount >= 3 ? 60 : 50;
       
       return Math.max(minConfidence, Math.min(100, Math.round(totalConfidence)));
     };
