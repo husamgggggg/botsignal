@@ -20,6 +20,28 @@ export interface SupportResistanceLevel {
   strength: number; // 0-100
 }
 
+export interface ADXValues {
+  adx: number[];
+  plusDI: number[]; // +DI
+  minusDI: number[]; // -DI
+}
+
+export interface StochasticValues {
+  k: number[]; // %K
+  d: number[]; // %D
+}
+
+export interface BollingerBands {
+  upper: number[];
+  middle: number[]; // SMA
+  lower: number[];
+  bandwidth: number[]; // (upper - lower) / middle
+}
+
+export interface ATRValues {
+  atr: number[];
+}
+
 @Injectable()
 export class TechnicalIndicatorsService {
   private readonly logger = new Logger(TechnicalIndicatorsService.name);
@@ -418,6 +440,378 @@ export class TechnicalIndicatorsService {
     }
 
     return patterns;
+  }
+
+  /**
+   * Calculate ATR (Average True Range)
+   * Measures market volatility
+   */
+  calculateATR(candles: OandaCandle[], period: number = 14): ATRValues {
+    if (candles.length < period + 1) {
+      return { atr: [] };
+    }
+
+    const trueRanges: number[] = [];
+
+    // Calculate True Range for each candle
+    for (let i = 1; i < candles.length; i++) {
+      const high = candles[i].high;
+      const low = candles[i].low;
+      const prevClose = candles[i - 1].close;
+
+      const tr1 = high - low;
+      const tr2 = Math.abs(high - prevClose);
+      const tr3 = Math.abs(low - prevClose);
+
+      trueRanges.push(Math.max(tr1, tr2, tr3));
+    }
+
+    // Calculate ATR using Wilder's smoothing
+    const atr: number[] = [];
+    let sum = 0;
+    for (let i = 0; i < period; i++) {
+      sum += trueRanges[i];
+    }
+    atr[period - 1] = sum / period;
+
+    for (let i = period; i < trueRanges.length; i++) {
+      atr[i] = (atr[i - 1] * (period - 1) + trueRanges[i]) / period;
+    }
+
+    return { atr };
+  }
+
+  /**
+   * Calculate ADX (Average Directional Index)
+   * Measures trend strength (0-100, >25 = strong trend)
+   */
+  calculateADX(candles: OandaCandle[], period: number = 14): ADXValues {
+    if (candles.length < period * 2) {
+      return { adx: [], plusDI: [], minusDI: [] };
+    }
+
+    const plusDM: number[] = [];
+    const minusDM: number[] = [];
+    const tr: number[] = [];
+
+    // Calculate +DM, -DM, and TR
+    for (let i = 1; i < candles.length; i++) {
+      const highDiff = candles[i].high - candles[i - 1].high;
+      const lowDiff = candles[i - 1].low - candles[i].low;
+
+      plusDM.push(highDiff > lowDiff && highDiff > 0 ? highDiff : 0);
+      minusDM.push(lowDiff > highDiff && lowDiff > 0 ? lowDiff : 0);
+
+      const tr1 = candles[i].high - candles[i].low;
+      const tr2 = Math.abs(candles[i].high - candles[i - 1].close);
+      const tr3 = Math.abs(candles[i].low - candles[i - 1].close);
+      tr.push(Math.max(tr1, tr2, tr3));
+    }
+
+    // Calculate smoothed +DI and -DI
+    const plusDI: number[] = [];
+    const minusDI: number[] = [];
+    const dx: number[] = [];
+
+    // Initial values (SMA)
+    let plusDMSum = 0;
+    let minusDMSum = 0;
+    let trSum = 0;
+
+    for (let i = 0; i < period; i++) {
+      plusDMSum += plusDM[i];
+      minusDMSum += minusDM[i];
+      trSum += tr[i];
+    }
+
+    let plusDIAvg = (plusDMSum / trSum) * 100;
+    let minusDIAvg = (minusDMSum / trSum) * 100;
+
+    plusDI[period - 1] = plusDIAvg;
+    minusDI[period - 1] = minusDIAvg;
+
+    // Calculate DX
+    const diSum = plusDIAvg + minusDIAvg;
+    dx[period - 1] = diSum > 0 ? (Math.abs(plusDIAvg - minusDIAvg) / diSum) * 100 : 0;
+
+    // Calculate subsequent values using Wilder's smoothing
+    for (let i = period; i < plusDM.length; i++) {
+      plusDMSum = (plusDMSum * (period - 1)) / period + plusDM[i];
+      minusDMSum = (minusDMSum * (period - 1)) / period + minusDM[i];
+      trSum = (trSum * (period - 1)) / period + tr[i];
+
+      plusDIAvg = (plusDMSum / trSum) * 100;
+      minusDIAvg = (minusDMSum / trSum) * 100;
+
+      plusDI[i] = plusDIAvg;
+      minusDI[i] = minusDIAvg;
+
+      const diSumCurrent = plusDIAvg + minusDIAvg;
+      dx[i] = diSumCurrent > 0 ? (Math.abs(plusDIAvg - minusDIAvg) / diSumCurrent) * 100 : 0;
+    }
+
+    // Calculate ADX (smoothed DX)
+    const adx: number[] = [];
+    let adxSum = 0;
+    for (let i = period - 1; i < period * 2 - 1 && i < dx.length; i++) {
+      adxSum += dx[i];
+    }
+    adx[period * 2 - 2] = adxSum / period;
+
+    for (let i = period * 2 - 1; i < dx.length; i++) {
+      adx[i] = (adx[i - 1] * (period - 1) + dx[i]) / period;
+    }
+
+    return { adx, plusDI, minusDI };
+  }
+
+  /**
+   * Calculate Stochastic Oscillator
+   * %K = ((Current Close - Lowest Low) / (Highest High - Lowest Low)) * 100
+   * %D = 3-period SMA of %K
+   */
+  calculateStochastic(
+    candles: OandaCandle[],
+    kPeriod: number = 14,
+    dPeriod: number = 3,
+  ): StochasticValues {
+    if (candles.length < kPeriod + dPeriod) {
+      return { k: [], d: [] };
+    }
+
+    const k: number[] = [];
+
+    // Calculate %K
+    for (let i = kPeriod - 1; i < candles.length; i++) {
+      const periodCandles = candles.slice(i - kPeriod + 1, i + 1);
+      const highestHigh = Math.max(...periodCandles.map((c) => c.high));
+      const lowestLow = Math.min(...periodCandles.map((c) => c.low));
+      const currentClose = candles[i].close;
+
+      const range = highestHigh - lowestLow;
+      if (range === 0) {
+        k.push(50); // Neutral if no range
+      } else {
+        k.push(((currentClose - lowestLow) / range) * 100);
+      }
+    }
+
+    // Calculate %D (SMA of %K)
+    const d = this.calculateSMA(k, dPeriod);
+
+    // Align arrays (k starts at index kPeriod-1, d starts later)
+    const kAligned = new Array(kPeriod - 1).fill(NaN).concat(k);
+    const dAligned = new Array(kPeriod + dPeriod - 2).fill(NaN).concat(d);
+
+    return { k: kAligned, d: dAligned };
+  }
+
+  /**
+   * Calculate SMA (Simple Moving Average) - helper for Stochastic
+   */
+  private calculateSMA(values: number[], period: number): number[] {
+    if (values.length < period) {
+      return [];
+    }
+
+    const sma: number[] = [];
+    for (let i = period - 1; i < values.length; i++) {
+      let sum = 0;
+      for (let j = i - period + 1; j <= i; j++) {
+        sum += values[j];
+      }
+      sma.push(sum / period);
+    }
+
+    return sma;
+  }
+
+  /**
+   * Calculate Bollinger Bands
+   * Upper = SMA + (StdDev * multiplier)
+   * Lower = SMA - (StdDev * multiplier)
+   */
+  calculateBollingerBands(
+    prices: number[],
+    period: number = 20,
+    multiplier: number = 2,
+  ): BollingerBands {
+    if (prices.length < period) {
+      return { upper: [], middle: [], lower: [], bandwidth: [] };
+    }
+
+    const middle: number[] = [];
+    const upper: number[] = [];
+    const lower: number[] = [];
+    const bandwidth: number[] = [];
+
+    for (let i = period - 1; i < prices.length; i++) {
+      const periodPrices = prices.slice(i - period + 1, i + 1);
+      const sma = periodPrices.reduce((sum, p) => sum + p, 0) / period;
+
+      // Calculate standard deviation
+      const variance = periodPrices.reduce((sum, p) => sum + Math.pow(p - sma, 2), 0) / period;
+      const stdDev = Math.sqrt(variance);
+
+      const upperBand = sma + stdDev * multiplier;
+      const lowerBand = sma - stdDev * multiplier;
+
+      middle.push(sma);
+      upper.push(upperBand);
+      lower.push(lowerBand);
+      bandwidth.push((upperBand - lowerBand) / sma);
+    }
+
+    // Align arrays
+    const alignedMiddle = new Array(period - 1).fill(NaN).concat(middle);
+    const alignedUpper = new Array(period - 1).fill(NaN).concat(upper);
+    const alignedLower = new Array(period - 1).fill(NaN).concat(lower);
+    const alignedBandwidth = new Array(period - 1).fill(NaN).concat(bandwidth);
+
+    return {
+      upper: alignedUpper,
+      middle: alignedMiddle,
+      lower: alignedLower,
+      bandwidth: alignedBandwidth,
+    };
+  }
+
+  /**
+   * Detect RSI Divergence
+   * Bullish: Price makes lower low, RSI makes higher low
+   * Bearish: Price makes higher high, RSI makes lower high
+   */
+  detectRSIDivergence(
+    prices: number[],
+    rsi: number[],
+    lookback: number = 20,
+  ): { type: 'bullish' | 'bearish' | 'none'; strength: number } {
+    if (prices.length < lookback * 2 || rsi.length < lookback * 2) {
+      return { type: 'none', strength: 0 };
+    }
+
+    const recentPrices = prices.slice(-lookback);
+    const recentRSI = rsi.slice(-lookback);
+
+    // Find price peaks and troughs
+    const pricePeaks: number[] = [];
+    const priceTroughs: number[] = [];
+    const rsiPeaks: number[] = [];
+    const rsiTroughs: number[] = [];
+
+    for (let i = 2; i < recentPrices.length - 2; i++) {
+      // Price peak
+      if (
+        recentPrices[i] > recentPrices[i - 1] &&
+        recentPrices[i] > recentPrices[i - 2] &&
+        recentPrices[i] > recentPrices[i + 1] &&
+        recentPrices[i] > recentPrices[i + 2]
+      ) {
+        pricePeaks.push(recentPrices[i]);
+        rsiPeaks.push(recentRSI[i]);
+      }
+
+      // Price trough
+      if (
+        recentPrices[i] < recentPrices[i - 1] &&
+        recentPrices[i] < recentPrices[i - 2] &&
+        recentPrices[i] < recentPrices[i + 1] &&
+        recentPrices[i] < recentPrices[i + 2]
+      ) {
+        priceTroughs.push(recentPrices[i]);
+        rsiTroughs.push(recentRSI[i]);
+      }
+    }
+
+    // Check for bullish divergence (price lower low, RSI higher low)
+    if (priceTroughs.length >= 2 && rsiTroughs.length >= 2) {
+      const lastPriceTrough = priceTroughs[priceTroughs.length - 1];
+      const prevPriceTrough = priceTroughs[priceTroughs.length - 2];
+      const lastRSITrough = rsiTroughs[rsiTroughs.length - 1];
+      const prevRSITrough = rsiTroughs[rsiTroughs.length - 2];
+
+      if (lastPriceTrough < prevPriceTrough && lastRSITrough > prevRSITrough) {
+        const strength = Math.min(100, Math.abs(lastPriceTrough - prevPriceTrough) * 1000);
+        return { type: 'bullish', strength };
+      }
+    }
+
+    // Check for bearish divergence (price higher high, RSI lower high)
+    if (pricePeaks.length >= 2 && rsiPeaks.length >= 2) {
+      const lastPricePeak = pricePeaks[pricePeaks.length - 1];
+      const prevPricePeak = pricePeaks[pricePeaks.length - 2];
+      const lastRSIPeak = rsiPeaks[rsiPeaks.length - 1];
+      const prevRSIPeak = rsiPeaks[rsiPeaks.length - 2];
+
+      if (lastPricePeak > prevPricePeak && lastRSIPeak < prevRSIPeak) {
+        const strength = Math.min(100, Math.abs(lastPricePeak - prevPricePeak) * 1000);
+        return { type: 'bearish', strength };
+      }
+    }
+
+    return { type: 'none', strength: 0 };
+  }
+
+  /**
+   * Detect Market Structure (Higher Highs / Lower Lows)
+   * Returns: 'bullish' | 'bearish' | 'sideways'
+   */
+  detectMarketStructure(candles: OandaCandle[], lookback: number = 20): {
+    structure: 'bullish' | 'bearish' | 'sideways';
+    strength: number;
+  } {
+    if (candles.length < lookback * 2) {
+      return { structure: 'sideways', strength: 0 };
+    }
+
+    const recentCandles = candles.slice(-lookback);
+    const highs = recentCandles.map((c) => c.high);
+    const lows = recentCandles.map((c) => c.low);
+
+    // Find peaks and troughs
+    const peaks: number[] = [];
+    const troughs: number[] = [];
+
+    for (let i = 2; i < recentCandles.length - 2; i++) {
+      if (
+        highs[i] > highs[i - 1] &&
+        highs[i] > highs[i - 2] &&
+        highs[i] > highs[i + 1] &&
+        highs[i] > highs[i + 2]
+      ) {
+        peaks.push(highs[i]);
+      }
+
+      if (
+        lows[i] < lows[i - 1] &&
+        lows[i] < lows[i - 2] &&
+        lows[i] < lows[i + 1] &&
+        lows[i] < lows[i + 2]
+      ) {
+        troughs.push(lows[i]);
+      }
+    }
+
+    // Check for higher highs and higher lows (bullish)
+    if (peaks.length >= 2 && troughs.length >= 2) {
+      const lastPeak = peaks[peaks.length - 1];
+      const prevPeak = peaks[peaks.length - 2];
+      const lastTrough = troughs[troughs.length - 1];
+      const prevTrough = troughs[troughs.length - 2];
+
+      if (lastPeak > prevPeak && lastTrough > prevTrough) {
+        const strength = Math.min(100, ((lastPeak - prevPeak) / prevPeak) * 10000);
+        return { structure: 'bullish', strength };
+      }
+
+      // Check for lower highs and lower lows (bearish)
+      if (lastPeak < prevPeak && lastTrough < prevTrough) {
+        const strength = Math.min(100, ((prevTrough - lastTrough) / prevTrough) * 10000);
+        return { structure: 'bearish', strength };
+      }
+    }
+
+    return { structure: 'sideways', strength: 0 };
   }
 }
 
