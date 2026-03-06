@@ -153,7 +153,7 @@ export class StrategyService {
     const buyCount = Object.values(buyConfirmations).filter((v) => v).length;
     const sellCount = Object.values(sellConfirmations).filter((v) => v).length;
 
-    const minConfirmations = 4; // Minimum required confirmations
+    const minConfirmations = 3; // Minimum required confirmations (3/5 = 60%)
 
     // Log confirmation details for debugging
     this.logger.debug(
@@ -208,8 +208,14 @@ export class StrategyService {
 
       const totalConfidence = baseConfidence + macdStrength + rsiStrength + emaStrength + srStrength + priceActionStrength;
 
-      // Minimum 75%, maximum 100%
-      return Math.max(75, Math.min(100, Math.round(totalConfidence)));
+      // Minimum confidence based on confirmations:
+      // 3 confirmations: 60% minimum
+      // 4 confirmations: 75% minimum
+      // 5 confirmations: 80% minimum
+      const confirmationCount = Object.values(confirmations).filter((v) => v).length;
+      const minConfidence = confirmationCount >= 5 ? 80 : confirmationCount >= 4 ? 75 : 60;
+      
+      return Math.max(minConfidence, Math.min(100, Math.round(totalConfidence)));
     };
 
     // Determine signal
@@ -262,7 +268,7 @@ export class StrategyService {
     // No signal (insufficient confirmations)
     return {
       direction: null,
-      confidence: Math.max(buyCount, sellCount) * 15, // Max 60% if less than 4 indicators
+      confidence: Math.max(buyCount, sellCount) * 20, // Max 40% if less than 3 indicators
       strategy: 'Advanced Multi-Indicator',
       indicators: {
         macd: false,

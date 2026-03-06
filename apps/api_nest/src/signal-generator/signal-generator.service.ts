@@ -74,8 +74,8 @@ export class SignalGeneratorService {
         `${instrument}: Direction=${analysis.direction}, Confidence=${analysis.confidence}%, Strategy=${analysis.strategy}`,
       );
 
-      // Only create signal if direction is determined and confidence >= 75%
-      if (analysis.direction && analysis.confidence >= 75) {
+      // Only create signal if direction is determined and confidence >= 60%
+      if (analysis.direction && analysis.confidence >= 60) {
         // Check if similar signal already exists (within last 5 minutes)
         const recentSignal = await this.prisma.signal.findFirst({
           where: {
