@@ -10,22 +10,30 @@ import { SignalsService } from '../signals/signals.service';
 export class SignalGeneratorService {
   private readonly logger = new Logger(SignalGeneratorService.name);
   // Only major pairs that are available in OANDA Practice account
-  // Note: EUR/USD and GBP/USD are excluded as per Python bot logic
-  private readonly instruments = [
-    'USD/JPY',
-    'AUD/USD',
-    'USD/CAD',
-    'USD/CHF',
-    'NZD/USD',
-    'EUR/GBP',
-    'EUR/JPY',
-    'GBP/JPY',
-    'AUD/JPY',
-    'EUR/AUD',
-    'GBP/AUD',
-    'GBP/CHF',
-    // Note: USD/BRL, USD/BDT, and USD/NGN are not available in OANDA Practice account
-  ];
+  // Note: EUR/USD and GBP/USD can be included if needed (set INCLUDE_EUR_USD=true in .env)
+  private readonly instruments = (() => {
+    const includeEurUsd = process.env.INCLUDE_EUR_USD === 'true';
+    const baseInstruments = [
+      'USD/JPY',
+      'AUD/USD',
+      'USD/CAD',
+      'USD/CHF',
+      'NZD/USD',
+      'EUR/GBP',
+      'EUR/JPY',
+      'GBP/JPY',
+      'AUD/JPY',
+      'EUR/AUD',
+      'GBP/AUD',
+      'GBP/CHF',
+    ];
+    
+    if (includeEurUsd) {
+      return ['EUR/USD', 'GBP/USD', ...baseInstruments];
+    }
+    
+    return baseInstruments;
+  })();
 
   constructor(
     private prisma: PrismaService,
@@ -60,17 +68,32 @@ export class SignalGeneratorService {
       try {
         const analysis = await this.strategyService.analyzeInstrument(instrument);
         
+        // Log all analysis results for debugging
+        if (analysis.direction) {
+          this.logger.debug(
+            `${instrument}: ${analysis.direction} signal, ${analysis.confidence}% confidence, ` +
+            `Indicators: MACD=${analysis.indicators.macd}, RSI=${analysis.indicators.rsi}, ` +
+            `EMA=${analysis.indicators.ema}, S/R=${analysis.indicators.supportResistance}, ` +
+            `PA=${analysis.indicators.priceAction}`
+          );
+        }
+        
         // Only consider signals with direction and confidence >= 70%
         if (analysis.direction && analysis.confidence >= 70) {
           qualifiedSignals.push({ instrument, analysis });
+          this.logger.log(`✅ Qualified: ${instrument} ${analysis.direction} (${analysis.confidence}%)`);
+        } else if (analysis.direction) {
+          this.logger.debug(`❌ Rejected (low confidence): ${instrument} ${analysis.direction} (${analysis.confidence}% < 70%)`);
         }
       } catch (error: any) {
         this.logger.error(`Failed to analyze ${instrument}: ${error.message}`);
       }
     }
 
+    this.logger.log(`Found ${qualifiedSignals.length} qualified signal(s) out of ${this.instruments.length} instruments`);
+
     if (qualifiedSignals.length === 0) {
-      this.logger.log('No qualified signals found');
+      this.logger.log('No qualified signals found (need: direction + confidence >= 70%)');
       return;
     }
 
@@ -87,9 +110,13 @@ export class SignalGeneratorService {
     if (lastGlobalSignal) {
       const timeSinceLastSignal = Date.now() - lastGlobalSignal.createdAt.getTime();
       if (timeSinceLastSignal < 60 * 1000) {
-        this.logger.debug(`Global cooldown active: ${Math.round(timeSinceLastSignal / 1000)}s since last signal`);
+        this.logger.log(`⏸️ Global cooldown active: ${Math.round(timeSinceLastSignal / 1000)}s / 60s since last signal (${lastGlobalSignal.asset} ${lastGlobalSignal.direction})`);
         return;
+      } else {
+        this.logger.log(`✅ Global cooldown expired: ${Math.round(timeSinceLastSignal / 1000)}s since last signal`);
       }
+    } else {
+      this.logger.log('✅ No previous signals found, cooldown check passed');
     }
 
     // Step 3: Filter signals based on instrument-specific rules
@@ -108,6 +135,7 @@ export class SignalGeneratorService {
       });
 
       if (recentSignal) {
+        this.logger.debug(`⏭️ Skipped ${instrument}: Similar signal exists (${Math.round((Date.now() - recentSignal.createdAt.getTime()) / 1000)}s ago)`);
         continue; // Skip if similar signal exists
       }
 
@@ -127,15 +155,23 @@ export class SignalGeneratorService {
       if (!directionChanged && lastInstrumentSignal) {
         const timeSinceLastInstrumentSignal = Date.now() - lastInstrumentSignal.createdAt.getTime();
         if (timeSinceLastInstrumentSignal < 60 * 1000) {
+          this.logger.debug(`⏭️ Skipped ${instrument}: Cooldown active (${Math.round(timeSinceLastInstrumentSignal / 1000)}s / 60s)`);
           continue; // Skip if cooldown active and direction didn't change
         }
       }
 
+      if (directionChanged) {
+        this.logger.log(`🔄 Direction changed for ${instrument}: ${lastInstrumentSignal?.direction} → ${analysis.direction}`);
+      }
+
       eligibleSignals.push({ instrument, analysis });
+      this.logger.log(`✅ Eligible: ${instrument} ${analysis.direction} (${analysis.confidence}%)`);
     }
 
+    this.logger.log(`Found ${eligibleSignals.length} eligible signal(s) after filtering`);
+
     if (eligibleSignals.length === 0) {
-      this.logger.log('No eligible signals after filtering');
+      this.logger.log('No eligible signals after filtering (cooldown or duplicate)');
       return;
     }
 
