@@ -106,17 +106,17 @@ export class StrategyService {
     buyConfirmations.macd =
       macdLineLast > signalLineLast && macdLineLast > 0 && histogramLast > 0;
 
-    // 2. RSI: بين 40-75 (أقل صرامة)
-    buyConfirmations.rsi = rsiLast >= 40 && rsiLast <= 75;
+    // 2. RSI: بين 45-70 (تجنب الذروة) - matches Python bot
+    buyConfirmations.rsi = rsiLast >= 45 && rsiLast <= 70;
 
-    // 3. EMA: السعر > EMA10 (أقل صرامة - ترند صاعد)
-    buyConfirmations.ema = currentPrice > ema10Last;
+    // 3. EMA: السعر > EMA10 > EMA20 > EMA50 (ترند صاعد قوي) - matches Python bot
+    buyConfirmations.ema = currentPrice > ema10Last && ema10Last > ema20Last && ema20Last > ema50Last;
 
-    // 4. Support/Resistance: السعر قريب من دعم (0.5% tolerance - أقل صرامة)
+    // 4. Support/Resistance: السعر قريب من دعم (0.2% tolerance) - matches Python bot
     buyConfirmations.supportResistance = false;
     if (nearestSupport !== null) {
       const distancePct = (Math.abs(currentPrice - nearestSupport) / nearestSupport) * 100;
-      if (distancePct <= 0.5) {
+      if (distancePct <= 0.2) {
         buyConfirmations.supportResistance = true;
       }
     }
@@ -131,17 +131,17 @@ export class StrategyService {
     sellConfirmations.macd =
       macdLineLast < signalLineLast && macdLineLast < 0 && histogramLast < 0;
 
-    // 2. RSI: بين 25-60 (أقل صرامة)
-    sellConfirmations.rsi = rsiLast >= 25 && rsiLast <= 60;
+    // 2. RSI: بين 30-55 (تجنب الذروة) - matches Python bot
+    sellConfirmations.rsi = rsiLast >= 30 && rsiLast <= 55;
 
-    // 3. EMA: السعر < EMA10 (أقل صرامة - ترند هابط)
-    sellConfirmations.ema = currentPrice < ema10Last;
+    // 3. EMA: السعر < EMA10 < EMA20 < EMA50 (ترند هابط قوي) - matches Python bot
+    sellConfirmations.ema = currentPrice < ema10Last && ema10Last < ema20Last && ema20Last < ema50Last;
 
-    // 4. Support/Resistance: السعر قريب من مقاومة (0.5% tolerance - أقل صرامة)
+    // 4. Support/Resistance: السعر قريب من مقاومة (0.2% tolerance) - matches Python bot
     sellConfirmations.supportResistance = false;
     if (nearestResistance !== null) {
       const distancePct = (Math.abs(currentPrice - nearestResistance) / nearestResistance) * 100;
-      if (distancePct <= 0.5) {
+      if (distancePct <= 0.2) {
         sellConfirmations.supportResistance = true;
       }
     }
@@ -153,7 +153,7 @@ export class StrategyService {
     const buyCount = Object.values(buyConfirmations).filter((v) => v).length;
     const sellCount = Object.values(sellConfirmations).filter((v) => v).length;
 
-    const minConfirmations = 2; // Minimum required confirmations (2/5 = 40%)
+    const minConfirmations = 4; // Minimum required confirmations (4/5 = 80%) - matches Python bot
 
     // Log confirmation details for debugging
     this.logger.debug(
@@ -166,8 +166,8 @@ export class StrategyService {
       confirmations: Record<string, boolean>,
       signalType: 'buy' | 'sell',
     ): number => {
-      // Base confidence: 25 points per confirmation (ensures 50% minimum for 2 confirmations)
-      let baseConfidence = Object.values(confirmations).filter((v) => v).length * 25;
+      // Base confidence: 20 points per confirmation - matches Python bot
+      let baseConfidence = Object.values(confirmations).filter((v) => v).length * 20;
 
       // MACD strength (0-15 points)
       let macdStrength = 0;
@@ -208,15 +208,8 @@ export class StrategyService {
 
       const totalConfidence = baseConfidence + macdStrength + rsiStrength + emaStrength + srStrength + priceActionStrength;
 
-      // Minimum confidence based on confirmations:
-      // 2 confirmations: 50% minimum
-      // 3 confirmations: 60% minimum
-      // 4 confirmations: 70% minimum
-      // 5 confirmations: 75% minimum
-      const confirmationCount = Object.values(confirmations).filter((v) => v).length;
-      const minConfidence = confirmationCount >= 5 ? 75 : confirmationCount >= 4 ? 70 : confirmationCount >= 3 ? 60 : 50;
-      
-      return Math.max(minConfidence, Math.min(100, Math.round(totalConfidence)));
+      // Minimum confidence: 75% - matches Python bot
+      return Math.max(75, Math.min(100, Math.round(totalConfidence)));
     };
 
     // Determine signal
@@ -269,7 +262,7 @@ export class StrategyService {
     // No signal (insufficient confirmations)
     return {
       direction: null,
-      confidence: Math.max(buyCount, sellCount) * 25, // Max 50% if less than 2 indicators
+      confidence: Math.max(buyCount, sellCount) * 20, // Max 60% if less than 4 indicators
       strategy: 'Advanced Multi-Indicator',
       indicators: {
         macd: false,
