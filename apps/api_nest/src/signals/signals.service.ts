@@ -77,6 +77,16 @@ export class SignalsService {
     return signals;
   }
 
+  async getAllActiveSignals() {
+    // Get all active signals without authentication (for debugging)
+    const signals = await this.prisma.signal.findMany({
+      where: { active: true },
+      orderBy: { createdAt: 'desc' },
+      take: 50,
+    });
+    return signals;
+  }
+
   async createSignal(dto: CreateSignalDto) {
     const signal = await this.prisma.signal.create({
       data: {

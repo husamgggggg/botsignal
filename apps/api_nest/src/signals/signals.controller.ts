@@ -16,5 +16,11 @@ export class SignalsController {
   async getSignals(@Request() req, @Query('platform') platform?: Platform) {
     return this.signalsService.getSignals(req.user.deviceId, platform);
   }
+
+  @Get('debug/all')
+  @ApiOperation({ summary: 'Get all active signals (debug endpoint, no auth required)' })
+  async getAllSignals() {
+    return this.signalsService.getAllActiveSignals();
+  }
 }
 
