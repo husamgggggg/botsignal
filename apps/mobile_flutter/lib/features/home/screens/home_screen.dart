@@ -26,10 +26,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Load mock signals for preview immediately
-    _loadMockSignals();
-    // Try to load real signals in background (silently fail if error)
-    _loadSignalsSilently();
+    // Try to load real signals first
+    _loadSignals();
     // Start periodic refresh (every 30 seconds)
     _startPeriodicRefresh();
   }
@@ -106,6 +104,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final token = authNotifier.token;
       if (token == null) {
         debugPrint('⚠️ No auth token - cannot load signals');
+        // Show mock signals if no token
+        if (_signals.isEmpty) {
+          _loadMockSignals();
+        }
         return;
       }
       
@@ -116,68 +118,81 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       
       debugPrint('✅ Loaded ${signals.length} signals from API');
       
-      // Only update if we got real signals
-      if (signals.isNotEmpty && mounted) {
-        // Transform API signals to display format and filter expired ones
-        final transformedSignals = signals
-            .map((signal) {
-              // Calculate remaining time
-              final createdAt = signal['createdAt'] as String?;
-              final expirySeconds = signal['expirySeconds'] as int? ?? 60;
-              final createdAtDate = createdAt != null ? DateTime.parse(createdAt) : DateTime.now();
-              final expiryDate = createdAtDate.add(Duration(seconds: expirySeconds));
-              final remainingSeconds = expiryDate.difference(DateTime.now()).inSeconds;
-              
-              // Skip expired signals (remainingSeconds <= 0)
-              if (remainingSeconds <= 0) {
-                return null;
-              }
-              
-              // Format entry time
-              final entryTime = createdAtDate.toIso8601String().substring(11, 16); // HH:mm
-              
-              // Determine contract duration from expirySeconds
-              String contractDuration = 'M1';
-              if (expirySeconds >= 300) {
-                contractDuration = 'M5';
-              } else if (expirySeconds >= 180) {
-                contractDuration = 'M3';
-              } else if (expirySeconds >= 60) {
-                contractDuration = 'M1';
-              } else {
-                contractDuration = '30s';
-              }
-              
-              return {
-                'id': signal['id'],
-                'asset': signal['asset'],
-                'direction': signal['direction'],
-                'probability': signal['confidence'] ?? 50, // Use confidence as probability
-                'expirySeconds': remainingSeconds,
-                'entryTime': '$entryTime GMT',
-                'contractDuration': contractDuration,
-                'suggestedRisk': 2.0,
-                'suggestedRiskPercent': 2,
-                'confidence': signal['confidence'],
-                'newsStatus': signal['newsStatus'] ?? 'SAFE',
-              };
-            })
-            .where((signal) => signal != null)
-            .cast<Map<String, dynamic>>()
-            .toList();
+      // Transform and update signals
+      if (mounted) {
+        final transformedSignals = _transformSignals(signals);
         
         setState(() {
           _signals = transformedSignals;
+          _loading = false;
         });
         
         debugPrint('✅ Transformed ${transformedSignals.length} signals for display');
-      } else if (mounted) {
-        debugPrint('⚠️ No signals returned from API (empty list)');
+        
+        // If no real signals, show mock signals
+        if (transformedSignals.isEmpty && _signals.isEmpty) {
+          debugPrint('⚠️ No real signals, showing mock signals');
+          _loadMockSignals();
+        }
       }
     } catch (e) {
       debugPrint('❌ Error loading signals: $e');
-      // Silently ignore errors - keep showing mock signals
+      // Show mock signals on error if no signals exist
+      if (mounted && _signals.isEmpty) {
+        _loadMockSignals();
+      }
     }
+  }
+
+  List<Map<String, dynamic>> _transformSignals(List<dynamic> signals) {
+    if (signals.isEmpty) return [];
+    
+    return signals
+        .map((signal) {
+          // Calculate remaining time
+          final createdAt = signal['createdAt'] as String?;
+          final expirySeconds = signal['expirySeconds'] as int? ?? 60;
+          final createdAtDate = createdAt != null ? DateTime.parse(createdAt) : DateTime.now();
+          final expiryDate = createdAtDate.add(Duration(seconds: expirySeconds));
+          final remainingSeconds = expiryDate.difference(DateTime.now()).inSeconds;
+          
+          // Skip expired signals (remainingSeconds <= 0)
+          if (remainingSeconds <= 0) {
+            return null;
+          }
+          
+          // Format entry time
+          final entryTime = createdAtDate.toIso8601String().substring(11, 16); // HH:mm
+          
+          // Determine contract duration from expirySeconds
+          String contractDuration = 'M1';
+          if (expirySeconds >= 300) {
+            contractDuration = 'M5';
+          } else if (expirySeconds >= 180) {
+            contractDuration = 'M3';
+          } else if (expirySeconds >= 60) {
+            contractDuration = 'M1';
+          } else {
+            contractDuration = '30s';
+          }
+          
+          return {
+            'id': signal['id'],
+            'asset': signal['asset'],
+            'direction': signal['direction'],
+            'probability': signal['confidence'] ?? 50, // Use confidence as probability
+            'expirySeconds': remainingSeconds,
+            'entryTime': '$entryTime GMT',
+            'contractDuration': contractDuration,
+            'suggestedRisk': 2.0,
+            'suggestedRiskPercent': 2,
+            'confidence': signal['confidence'],
+            'newsStatus': signal['newsStatus'] ?? 'SAFE',
+          };
+        })
+        .where((signal) => signal != null)
+        .cast<Map<String, dynamic>>()
+        .toList();
   }
 
   Future<void> _loadSignals() async {
@@ -206,14 +221,31 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       final apiService = ref.read(apiServiceProvider);
       final signalsService = SignalsService(apiService);
       final signals = await signalsService.getSignals();
+      
+      debugPrint('✅ Loaded ${signals.length} signals from API');
+      
+      // Transform signals to display format
+      final transformedSignals = _transformSignals(signals);
+      
       setState(() {
-        _signals = signals;
+        if (transformedSignals.isNotEmpty) {
+          _signals = transformedSignals;
+        } else {
+          // If no real signals, show mock signals
+          debugPrint('⚠️ No real signals, showing mock signals');
+          _loadMockSignals();
+        }
         _loading = false;
       });
     } catch (e) {
+      debugPrint('❌ Error loading signals: $e');
       setState(() {
         _error = e.toString();
         _loading = false;
+        // Show mock signals on error
+        if (_signals.isEmpty) {
+          _loadMockSignals();
+        }
       });
     }
   }
