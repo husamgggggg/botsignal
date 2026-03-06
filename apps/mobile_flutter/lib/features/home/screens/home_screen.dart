@@ -118,44 +118,53 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       
       // Only update if we got real signals
       if (signals.isNotEmpty && mounted) {
-        // Transform API signals to display format
-        final transformedSignals = signals.map((signal) {
-          // Calculate remaining time
-          final createdAt = signal['createdAt'] as String?;
-          final expirySeconds = signal['expirySeconds'] as int? ?? 60;
-          final createdAtDate = createdAt != null ? DateTime.parse(createdAt) : DateTime.now();
-          final expiryDate = createdAtDate.add(Duration(seconds: expirySeconds));
-          final remainingSeconds = expiryDate.difference(DateTime.now()).inSeconds;
-          
-          // Format entry time
-          final entryTime = createdAtDate.toIso8601String().substring(11, 16); // HH:mm
-          
-          // Determine contract duration from expirySeconds
-          String contractDuration = 'M1';
-          if (expirySeconds >= 300) {
-            contractDuration = 'M5';
-          } else if (expirySeconds >= 180) {
-            contractDuration = 'M3';
-          } else if (expirySeconds >= 60) {
-            contractDuration = 'M1';
-          } else {
-            contractDuration = '30s';
-          }
-          
-          return {
-            'id': signal['id'],
-            'asset': signal['asset'],
-            'direction': signal['direction'],
-            'probability': signal['confidence'] ?? 50, // Use confidence as probability
-            'expirySeconds': remainingSeconds > 0 ? remainingSeconds : 0,
-            'entryTime': '$entryTime GMT',
-            'contractDuration': contractDuration,
-            'suggestedRisk': 2.0,
-            'suggestedRiskPercent': 2,
-            'confidence': signal['confidence'],
-            'newsStatus': signal['newsStatus'] ?? 'SAFE',
-          };
-        }).toList();
+        // Transform API signals to display format and filter expired ones
+        final transformedSignals = signals
+            .map((signal) {
+              // Calculate remaining time
+              final createdAt = signal['createdAt'] as String?;
+              final expirySeconds = signal['expirySeconds'] as int? ?? 60;
+              final createdAtDate = createdAt != null ? DateTime.parse(createdAt) : DateTime.now();
+              final expiryDate = createdAtDate.add(Duration(seconds: expirySeconds));
+              final remainingSeconds = expiryDate.difference(DateTime.now()).inSeconds;
+              
+              // Skip expired signals (remainingSeconds <= 0)
+              if (remainingSeconds <= 0) {
+                return null;
+              }
+              
+              // Format entry time
+              final entryTime = createdAtDate.toIso8601String().substring(11, 16); // HH:mm
+              
+              // Determine contract duration from expirySeconds
+              String contractDuration = 'M1';
+              if (expirySeconds >= 300) {
+                contractDuration = 'M5';
+              } else if (expirySeconds >= 180) {
+                contractDuration = 'M3';
+              } else if (expirySeconds >= 60) {
+                contractDuration = 'M1';
+              } else {
+                contractDuration = '30s';
+              }
+              
+              return {
+                'id': signal['id'],
+                'asset': signal['asset'],
+                'direction': signal['direction'],
+                'probability': signal['confidence'] ?? 50, // Use confidence as probability
+                'expirySeconds': remainingSeconds,
+                'entryTime': '$entryTime GMT',
+                'contractDuration': contractDuration,
+                'suggestedRisk': 2.0,
+                'suggestedRiskPercent': 2,
+                'confidence': signal['confidence'],
+                'newsStatus': signal['newsStatus'] ?? 'SAFE',
+              };
+            })
+            .where((signal) => signal != null)
+            .cast<Map<String, dynamic>>()
+            .toList();
         
         setState(() {
           _signals = transformedSignals;

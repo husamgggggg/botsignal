@@ -235,5 +235,39 @@ export class SignalGeneratorService {
   async generateSignalsManually() {
     await this.generateSignals();
   }
+
+  /**
+   * Deactivate expired signals
+   * Runs every minute to clean up expired signals
+   */
+  @Cron('* * * * *') // Every minute
+  async deactivateExpiredSignals() {
+    const now = new Date();
+    
+    // Find all active signals that have expired
+    const expiredSignals = await this.prisma.signal.findMany({
+      where: {
+        active: true,
+      },
+    });
+
+    const expired = expiredSignals.filter((signal) => {
+      const expiryDate = new Date(signal.createdAt.getTime() + signal.expirySeconds * 1000);
+      return expiryDate <= now;
+    });
+
+    if (expired.length > 0) {
+      const expiredIds = expired.map((s) => s.id);
+      await this.prisma.signal.updateMany({
+        where: {
+          id: { in: expiredIds },
+        },
+        data: {
+          active: false,
+        },
+      });
+      this.logger.log(`Deactivated ${expired.length} expired signal(s)`);
+    }
+  }
 }
 

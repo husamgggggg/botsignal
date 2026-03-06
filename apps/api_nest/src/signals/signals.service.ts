@@ -62,7 +62,7 @@ export class SignalsService {
       throw new ForbiddenException('Account verification required');
     }
 
-    // Get active signals
+    // Get active signals that haven't expired
     const where: any = { active: true };
     if (platform) {
       where.platform = platform;
@@ -74,7 +74,14 @@ export class SignalsService {
       take: 50,
     });
 
-    return signals;
+    // Filter out expired signals (createdAt + expirySeconds < now)
+    const now = new Date();
+    const validSignals = signals.filter((signal) => {
+      const expiryDate = new Date(signal.createdAt.getTime() + signal.expirySeconds * 1000);
+      return expiryDate > now;
+    });
+
+    return validSignals;
   }
 
   async getAllActiveSignals() {
@@ -84,7 +91,15 @@ export class SignalsService {
       orderBy: { createdAt: 'desc' },
       take: 50,
     });
-    return signals;
+
+    // Filter out expired signals
+    const now = new Date();
+    const validSignals = signals.filter((signal) => {
+      const expiryDate = new Date(signal.createdAt.getTime() + signal.expirySeconds * 1000);
+      return expiryDate > now;
+    });
+
+    return validSignals;
   }
 
   async createSignal(dto: CreateSignalDto) {
