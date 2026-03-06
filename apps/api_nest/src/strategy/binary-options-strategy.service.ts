@@ -97,9 +97,11 @@ export class BinaryOptionsStrategyService {
     const ema50Last = ema50[ema50.length - 1];
     const ema100Last = ema100[ema100.length - 1];
 
-    // Trend alignment (use 100 instead of 200)
-    const bullishTrend = currentPrice > ema20Last && ema20Last > ema50Last && ema50Last > ema100Last;
-    const bearishTrend = currentPrice < ema20Last && ema20Last < ema50Last && ema50Last < ema100Last;
+    // Trend alignment (relaxed: EMA20 > EMA50 only, or price > EMA20 for bullish)
+    const bullishTrend = (currentPrice > ema20Last && ema20Last > ema50Last) || 
+                         (ema100Last && currentPrice > ema20Last && ema20Last > ema50Last && ema50Last > ema100Last);
+    const bearishTrend = (currentPrice < ema20Last && ema20Last < ema50Last) || 
+                         (ema100Last && currentPrice < ema20Last && ema20Last < ema50Last && ema50Last < ema100Last);
 
     // 2. Trend Strength (ADX)
     const adx = this.technicalIndicators.calculateADX(candles, 14);
@@ -107,7 +109,7 @@ export class BinaryOptionsStrategyService {
     const plusDILast = adx.plusDI[adx.plusDI.length - 1] || 0;
     const minusDILast = adx.minusDI[adx.minusDI.length - 1] || 0;
 
-    const strongTrend = adxLast > 25; // ADX > 25 indicates strong trend
+    const strongTrend = adxLast > 20; // ADX > 20 indicates moderate-strong trend (relaxed from 25)
     const trendDirection = plusDILast > minusDILast ? 'bullish' : 'bearish';
 
     // 3. Market Structure
@@ -199,8 +201,10 @@ export class BinaryOptionsStrategyService {
         (rsiLast >= 30 && rsiLast <= 70 && rsiLast > 50) || // RSI recovery from oversold
         rsiDivergence.type === 'bullish' ||
         (stochasticBullish && stochasticKLast < 80) || // Stochastic crossover, not overbought
-        macdBullish,
-      volatility: bollingerBreakoutUp || (bollingerSqueeze && currentPrice > bollingerMiddleLast),
+        macdBullish ||
+        (stochasticKLast > stochasticDLast && stochasticKLast > 40), // Stochastic above signal and above 40
+      volatility: bollingerBreakoutUp || (bollingerSqueeze && currentPrice > bollingerMiddleLast) || 
+                  (currentPrice > bollingerMiddleLast && !bollingerSqueeze), // Price above middle band
       supportResistance: supportRejection || (nearestResistance !== null && currentPrice > nearestResistance * 0.998),
       marketStructure: marketStructure.structure === 'bullish',
     };
@@ -224,8 +228,10 @@ export class BinaryOptionsStrategyService {
         (rsiLast >= 30 && rsiLast <= 70 && rsiLast < 50) || // RSI rejection from overbought
         rsiDivergence.type === 'bearish' ||
         (stochasticBearish && stochasticKLast > 20) || // Stochastic crossover, not oversold
-        macdBearish,
-      volatility: bollingerBreakoutDown || (bollingerSqueeze && currentPrice < bollingerMiddleLast),
+        macdBearish ||
+        (stochasticKLast < stochasticDLast && stochasticKLast < 60), // Stochastic below signal and below 60
+      volatility: bollingerBreakoutDown || (bollingerSqueeze && currentPrice < bollingerMiddleLast) || 
+                  (currentPrice < bollingerMiddleLast && !bollingerSqueeze), // Price below middle band
       supportResistance: resistanceRejection || (nearestSupport !== null && currentPrice < nearestSupport * 1.002),
       marketStructure: marketStructure.structure === 'bearish',
     };
@@ -262,8 +268,8 @@ export class BinaryOptionsStrategyService {
     // CONFIDENCE CALCULATION
     // ============================================
 
-    // Minimum 3 confirmations required
-    const minConfirmations = 3;
+    // Minimum 2 confirmations required (relaxed from 3 for better signal frequency)
+    const minConfirmations = 2;
 
     if (callConfirmationCount >= minConfirmations && callConfirmationCount > putConfirmationCount) {
       const confidence = this.calculateConfidence(callConfirmations, {
@@ -278,7 +284,7 @@ export class BinaryOptionsStrategyService {
 
       this.logger.debug(`${instrument} CALL Confidence calculated: ${confidence}%`);
       
-      if (confidence >= 70) {
+      if (confidence >= 60) { // Lowered from 70% to 60% for better signal frequency
         this.logger.log(`${instrument} ✅ CALL signal generated: ${confidence}% confidence`);
         return {
           direction: Direction.CALL,
@@ -313,7 +319,7 @@ export class BinaryOptionsStrategyService {
 
       this.logger.debug(`${instrument} PUT Confidence calculated: ${confidence}%`);
       
-      if (confidence >= 70) {
+      if (confidence >= 60) { // Lowered from 70% to 60% for better signal frequency
         this.logger.log(`${instrument} ✅ PUT signal generated: ${confidence}% confidence`);
         return {
           direction: Direction.PUT,
