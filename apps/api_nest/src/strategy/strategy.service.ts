@@ -166,8 +166,8 @@ export class StrategyService {
       confirmations: Record<string, boolean>,
       signalType: 'buy' | 'sell',
     ): number => {
-      // Base confidence: 20 points per confirmation
-      let baseConfidence = Object.values(confirmations).filter((v) => v).length * 20;
+      // Base confidence: 25 points per confirmation (ensures 50% minimum for 2 confirmations)
+      let baseConfidence = Object.values(confirmations).filter((v) => v).length * 25;
 
       // MACD strength (0-15 points)
       let macdStrength = 0;
@@ -269,7 +269,7 @@ export class StrategyService {
     // No signal (insufficient confirmations)
     return {
       direction: null,
-      confidence: Math.max(buyCount, sellCount) * 20, // Max 40% if less than 3 indicators
+      confidence: Math.max(buyCount, sellCount) * 25, // Max 50% if less than 2 indicators
       strategy: 'Advanced Multi-Indicator',
       indicators: {
         macd: false,
