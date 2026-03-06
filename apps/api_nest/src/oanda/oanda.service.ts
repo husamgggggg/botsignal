@@ -87,7 +87,7 @@ export class OandaService {
   async getCandles(
     instrument: string,
     granularity: string = 'M1',
-    count: number = 500,
+    count: number = 200,
   ): Promise<OandaCandle[]> {
     try {
       // Check if API key is configured

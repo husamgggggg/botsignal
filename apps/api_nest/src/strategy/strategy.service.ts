@@ -286,10 +286,10 @@ export class StrategyService {
    */
   async analyzeInstrument(instrument: string): Promise<StrategyAnalysis> {
     try {
-      // Get candles (M1 timeframe, 500 candles)
-      const candles = await this.oandaService.getCandles(instrument, 'M1', 500);
+      // Get candles (M1 timeframe, 200 candles)
+      const candles = await this.oandaService.getCandles(instrument, 'M1', 200);
 
-      if (candles.length < 100) {
+      if (candles.length < 50) {
         this.logger.warn(`Not enough candles for ${instrument}: ${candles.length}`);
         return {
           direction: null,
